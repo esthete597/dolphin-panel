@@ -3,11 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://telegram.org; style-src 'unsafe-inline'; img-src 'self' data:; connect-src https://ntfy.sh">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://telegram.org; style-src 'unsafe-inline'; img-src 'self' data: blob:; connect-src https://ntfy.sh">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <link rel="icon" href="logo.png">
 <link rel="apple-touch-icon" href="logo.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dolphin">
 <title>Пульт</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -19,7 +21,6 @@ body{background:linear-gradient(var(--bg1),var(--bg2)) fixed;color:var(--t);font
 main{max-width:480px;margin:0 auto;padding:10px 14px calc(84px + env(safe-area-inset-bottom))}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .head{display:flex;justify-content:space-between;align-items:center;margin:2px 4px 8px}
-.logo{width:38px;height:38px;border-radius:11px;margin-right:10px;flex:none}
 input[type=range]{width:100%;accent-color:var(--green);margin:12px 0 2px}
 .title{font-size:21px;font-weight:700}.sub{font-size:12px;color:var(--mut)}
 .round{width:40px;height:40px;border-radius:50%;background:var(--tile);display:flex;align-items:center;justify-content:center;color:var(--green);flex:none}
@@ -73,6 +74,14 @@ select,input[type=text]{font:inherit;font-size:16px;background:var(--tile);color
 .sheet{background:var(--card);border-radius:22px 22px 0 0;width:100%;max-width:480px;max-height:85vh;overflow:auto;padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
 .sheet h3{font-size:17px;margin-bottom:10px}.sheet .pill{margin-top:8px}
 .toast{position:fixed;left:16px;right:16px;bottom:calc(86px + env(safe-area-inset-bottom));max-width:448px;margin:0 auto;background:var(--t);color:var(--bg1);border-radius:14px;padding:12px 14px;font-size:14px;text-align:center;z-index:20}
+.tires{display:flex;justify-content:space-around;margin-top:9px;padding:8px 8px 0;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}
+.tires b{color:var(--t);font-size:14px;margin-left:4px}.tires b.odd{color:var(--warn)}
+.acbtn{width:54px;height:54px;margin-left:10px;flex:none;border-radius:50%;background:var(--card);border:1px solid var(--line);color:var(--mut);font-weight:800;font-size:20px}
+.acbtn.on{background:var(--green);border-color:var(--green);color:var(--on)}
+.acbtn.busy{animation:pulse .8s infinite alternate}
+.viewer{position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:30;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;padding:16px;color:#fff;text-align:center}
+.viewer img{max-width:100%;max-height:75vh;border-radius:12px}
+.viewer .x{position:absolute;top:calc(12px + env(safe-area-inset-top));right:14px;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:22px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -81,6 +90,8 @@ select,input[type=text]{font:inherit;font-size:16px;background:var(--tile);color
 <nav class="tabs" id="tabs"></nav>
 <div class="shade" id="shade" hidden><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast" hidden></div>
+<div class="viewer" id="viewer" hidden><button class="x" id="viewerClose" aria-label="Закрыть фото">✕</button>
+  <b id="viewerTitle"></b><img id="viewerImg" alt="Фото с камеры" hidden><span id="viewerNote"></span></div>
 <script>
 'use strict';
 const TG = window.Telegram && window.Telegram.WebApp;
@@ -106,7 +117,13 @@ const MD = {"car":"M12,8.5H7L4,11H3C1.89,11 1,11.89 1,13V16H3.17C3.6,17.2 4.73,1
 // our own, drawn with a line: a car's side window with its direction, and a wing mirror
 const GLASS = '<path d="M2.500 18v-2C5.500 9.500 9.500 6 15 6h4.500c1.100 0 2 .9 2 2v10z"/>';
 const MIRROR = '<path d="M3.500 8c0-2 2-3.500 5-3.500h8c2.500 0 4 1.500 4 3.500v3c0 3-2 4.500-5 4.500h-6c-3.500 0-6-2.500-6-5.500z"/><path d="M15 15.500v3.500h5"/>';
+const CAR_TOP = '<rect x="8" y="7" width="8" height="10" rx="2.500"/>';
 const LINE = {
+  camfront: CAR_TOP + '<path d="M9 4.500L7 2M12 4V1.500M15 4.500L17 2"/>',
+  camrear: CAR_TOP + '<path d="M9 19.500L7 22M12 20v2.500M15 19.500L17 22"/>',
+  camleft: CAR_TOP + '<path d="M5.500 10L2.500 8M5 12H1.500M5.500 14l-3 2"/>',
+  camright: CAR_TOP + '<path d="M18.500 10l3-2M19 12h3.500M18.500 14l3 2"/>',
+  fresh: '<path d="M2 9h10M8.500 5.500L12 9l-3.500 3.500M13 5h4c2.500 0 4.500 2 4.500 4.500V19H6v-4"/>',
   winup: GLASS + '<path d="M14.500 15.500v-6M11.800 12l2.700-2.800 2.700 2.800"/>',
   windown: GLASS + '<path d="M14.500 9v6M11.800 12.600l2.700 2.800 2.700-2.800"/>',
   fold: MIRROR + '<path d="M13 10H8M10 8l-2 2 2 2"/>',
@@ -130,7 +147,11 @@ const LABELS = {
   mirror_on:'Складывание зеркал вкл', mirror_off:'Складывание зеркал выкл', drl_on:'Ходовые огни вкл', drl_off:'Ходовые огни выкл',
   charger_on:'Беспроводная зарядка вкл', charger_off:'Беспроводная зарядка выкл',
   mirror_heat_on:'Обогрев зеркал вкл', mirror_heat_off:'Обогрев зеркал выкл',
-  shade_open:'Открыть шторку', shade_close:'Закрыть шторку', sentry_on:'Включить охрану', sentry_off:'Выключить охрану', sleep:'Спящий режим'
+  shade_open:'Открыть шторку', shade_close:'Закрыть шторку', sentry_on:'Включить охрану', sentry_off:'Выключить охрану', sleep:'Спящий режим', wake:'Выключить спящий режим',
+  ac_comp_on:'AC включить', ac_comp_off:'AC выключить',
+  wind_1:'Дует в лицо', wind_2:'Дует в лицо и ноги', wind_3:'Дует в ноги', wind_4:'Дует в ноги и на стекло',
+  wind_5:'Дует на стекло', wind_6:'Дует везде', wind_7:'Дует в лицо и на стекло',
+  photo_front:'Камера спереди', photo_rear:'Камера сзади', photo_left:'Камера слева', photo_right:'Камера справа'
 };
 temps.forEach(t => LABELS['temp_' + t] = `Температура ${degrees(t)}`);
 for (let p = 0; p <= 100; p += 10) LABELS['shade_' + p] = `Шторка на ${p} %`;
@@ -149,9 +170,13 @@ const ITEMS = [
   { id:'mh', toggle:true },
   { id:'shade', toggle:true },
   { id:'sentry', toggle:true },
-  { id:'sleep', name:'Спящий режим', icon:'sleep', cmds:['sleep'] },
+  { id:'sleep', toggle:true },
   { id:'drl', toggle:true },
-  { id:'mi', toggle:true }
+  { id:'mi', toggle:true },
+  { id:'pf', name:'Камера спереди', icon:'camfront', cmds:['photo_front'], photo:true },
+  { id:'pb', name:'Камера сзади', icon:'camrear', cmds:['photo_rear'], photo:true },
+  { id:'pl', name:'Камера слева', icon:'camleft', cmds:['photo_left'], photo:true },
+  { id:'pr', name:'Камера справа', icon:'camright', cmds:['photo_right'], photo:true }
 ];
 /** What a card shows and does now: a two-way command offers the opposite of what the car reports. */
 function face(it) {
@@ -167,6 +192,7 @@ function face(it) {
     case 'mh': return two(c.mirrorHeat === 1, 'Включить обогрев зеркал', 'Выключить обогрев зеркал', 'mirrorheat', 'mirror_heat_on', 'mirror_heat_off');
     case 'mi': return two(c.fold === 1, 'Включить складывание зеркал', 'Выключить складывание зеркал', 'fold', 'mirror_on', 'mirror_off');
     case 'shade': return two(c.shade > 0, 'Открыть шторку', 'Закрыть шторку', 'shade', 'shade_open', 'shade_close');
+    case 'sleep': return two(c.sleep === 1, 'Спящий режим', 'Выключить спящий режим', 'sleep', 'sleep', 'wake');
     case 'sentry': return two(c.sentry === 1, 'Включить охрану', 'Выключить охрану', 'sentry', 'sentry_on', 'sentry_off');
     case 'drl': return two(c.drl === 1, 'Включить ходовые огни', 'Выключить ходовые огни', 'drl', 'drl_on', 'drl_off');
   }
@@ -230,6 +256,7 @@ async function open_(message) {
 // ---------- link ----------
 const waiting = new Map();   // request id -> resolve
 let source = null, lastPing = 0;
+const FRESH_MS = 60000;
 function listen() {
   if (DEMO || !pairing.k) return;
   if (source) source.close();
@@ -239,6 +266,8 @@ function listen() {
     const status = await open_(event.message || '');
     if (!status) return;
     if (!car || status.ts >= car.ts) { car = status; store.set('car', car); remember(status); }
+    // a late answer or a change told by itself: either way the car is there (a sleeping screen makes it slow)
+    if (Math.abs(Date.now() - status.ts) < FRESH_MS) online = true;
     const done = waiting.get(status.re);
     if (done) { waiting.delete(status.re); online = true; done(status); }
     render();
@@ -262,17 +291,22 @@ async function request(cmds, wait = 12000 + cmds.length * 4000) {
 async function ping(force) {
   if (!force && Date.now() - lastPing < 20000) return;
   lastPing = Date.now();
-  const a = await request([], 10000);
-  online = !!(a && !a.failed);
+  const asked = Date.now();
+  const a = await request([], 22000);
+  online = !!(a && !a.failed) || (!!car && car.ts > asked - FRESH_MS);
   render();
 }
 function demo(cmds) {
-  car = Object.assign({ soc:80, range:290, odo:66599, in:25, ac:0, temp:22, fan:2, circ:1, auto:0, defrost:0, seatD:0, seatP:0, win:[0,0,0,0], lat:41.311, lon:69.279 }, car || {}, { ts: Date.now() });
+  car = Object.assign({ soc:80, range:290, odo:66599, in:25, ac:0, temp:22, fan:2, circ:1, auto:0, defrost:0, seatD:0, seatP:0, win:[0,0,0,0], tire:[232,236,236,242], sleep:0, comp:0, wind:1, mirrorHeat:0, sentry:0, lat:41.311, lon:69.279 }, car || {}, { ts: Date.now() });
   cmds.forEach(c => {
     if (c === 'ac_on') car.ac = 1; if (c === 'ac_off') car.ac = 0;
     if (c === 'mirror_heat_on') car.mirrorHeat = 1; if (c === 'mirror_heat_off') car.mirrorHeat = 0;
     if (c === 'mirror_on') car.fold = 1; if (c === 'mirror_off') car.fold = 0;
     if (c === 'drl_on') car.drl = 1; if (c === 'drl_off') car.drl = 0;
+    if (c === 'sleep') car.sleep = 1; if (c === 'wake') car.sleep = 0;
+    if (c === 'ac_comp_on') car.comp = 1; if (c === 'ac_comp_off') car.comp = 0;
+    if (c.startsWith('wind_')) car.wind = +c.slice(5);
+    if (c === 'air_in') car.circ = 1; if (c === 'air_out') car.circ = 0;
     if (c === 'sentry_on') car.sentry = 1; if (c === 'sentry_off') car.sentry = 0;
     if (c === 'shade_open') car.shade = 100; if (c === 'shade_close') car.shade = 0;
     if (/^shade_\d/.test(c)) car.shade = +c.slice(6);
@@ -296,8 +330,9 @@ async function run(name, cmds, tag) {
   // a car program older than 1.5.2 refuses a whole request holding a command it does not know
   if (car && car.sentry === undefined) {
     cmds = cmds.filter(c => !/^(shade_|sentry_|sleep$|temp_33$)/.test(c));
-    if (!cmds.length) { if (tag) { busy.delete(tag); render(); } return toast('Заработает после обновления программы в машине'); }
   }
+  if (car && car.sleep === undefined) cmds = cmds.filter(c => !/^(wake$|ac_comp_|wind_|photo_)/.test(c));
+  if (!cmds.length) { if (tag) { busy.delete(tag); render(); } return toast('Заработает после обновления программы в машине'); }
   const a = await request(cmds);
   if (tag) busy.delete(tag);
   let text, ok = false;
@@ -311,6 +346,63 @@ async function run(name, cmds, tag) {
   journal = [{ t: Date.now(), name, text }, ...journal].slice(0, 40); store.set('journal', journal);
   toast(`${name}: ${text}`); haptic(ok ? 'success' : 'error'); render();
 }
+// ---------- photos ----------
+// The car takes the picture, seals it with the same key and leaves it on the relay; it is opened here and
+// kept nowhere on the phone.
+let shot = 0, shotUrl = null;
+function viewer(title, note, url) {
+  if (shotUrl && shotUrl !== url) { URL.revokeObjectURL(shotUrl); }
+  shotUrl = url || null;
+  $('viewerTitle').textContent = title; $('viewerNote').textContent = note;
+  $('viewerImg').hidden = !url; if (url) $('viewerImg').src = url; else $('viewerImg').removeAttribute('src');
+  $('viewer').hidden = false;
+  try { TG.BackButton.show(); } catch (e) {}
+}
+function closeViewer() {
+  shot++;
+  if (shotUrl) URL.revokeObjectURL(shotUrl);
+  shotUrl = null; $('viewerImg').removeAttribute('src'); $('viewer').hidden = true;
+  render();
+}
+async function demoPhoto(name) {
+  const c = document.createElement('canvas'); c.width = 960; c.height = 720;
+  const g = c.getContext('2d'); g.fillStyle = '#456'; g.fillRect(0, 0, 960, 720);
+  g.fillStyle = '#fff'; g.font = '56px sans-serif'; g.textAlign = 'center'; g.fillText('Пример: ' + name, 480, 370);
+  return new Promise(r => c.toBlob(r, 'image/jpeg'));
+}
+async function openPhoto(link) {
+  if (!String(link).startsWith('https://ntfy.sh/file/')) throw new Error('link');
+  const all = new Uint8Array(await (await fetch(link)).arrayBuffer());
+  const plain = await crypto.subtle.decrypt({ name:'AES-GCM', iv: all.slice(0, 12) }, await aes(), all.slice(12));
+  return new Blob([plain], { type:'image/jpeg' });
+}
+async function snap(name, cmd, tag) {
+  if (!pairing.k) return toast('Пульт не связан с машиной: откройте его из бота');
+  if (online === false) { ping(true); return toast('Машина не в сети'); }
+  if (!DEMO && car && car.sleep === undefined) return toast('Заработает после обновления программы в машине');
+  if (busy.has(tag)) return;
+  busy.add(tag); haptic('light'); render();
+  const mine = ++shot;
+  viewer(name, 'Снимаю… это займёт несколько секунд');
+  let text = 'Фото получено', blob = null;
+  try {
+    const a = await request([cmd], 40000);
+    const why = a && a.res && a.res[cmd];
+    if (!a) { text = 'Машина не ответила'; online = false; }
+    else if (a.failed) text = 'Нет интернета на телефоне';
+    else if (why !== true) text = why || 'Фото не получилось';
+    else blob = DEMO ? await demoPhoto(name) : await openPhoto(a.photo && a.photo.url);
+  } catch (e) { text = 'Фото не открылось, попробуйте ещё раз'; }
+  busy.delete(tag);
+  journal = [{ t: Date.now(), name, text }, ...journal].slice(0, 40); store.set('journal', journal);
+  haptic(blob ? 'success' : 'error');
+  // the picture of a closed window is not brought back
+  if (mine === shot) viewer(blob ? `${name} · ${new Date().toLocaleTimeString('ru', { hour:'2-digit', minute:'2-digit' })}` : name,
+    blob ? '' : text, blob ? URL.createObjectURL(blob) : null);
+  render();
+}
+$('viewerClose').addEventListener('click', closeViewer);
+
 function haptic(kind) {
   try { if (kind === 'light' || kind === 'medium') TG.HapticFeedback.impactOccurred(kind); else TG.HapticFeedback.notificationOccurred(kind); } catch (e) {}
 }
@@ -326,6 +418,7 @@ $('shade').addEventListener('click', e => { if (e.target === $('shade')) closeSh
 function press(it) {
   if (it.find) return showPlace();
   const f = face(it);
+  if (it.photo) return snap(it.name, it.cmds[0], it.id);
   run(f.name, it.scenario ? scenarioCommands(it.id) : f.cmds, it.id);
 }
 function showPlace() {
@@ -340,6 +433,17 @@ function showPlace() {
     if (TG && TG.openTelegramLink) TG.openTelegramLink(url); else window.open(url, '_blank');
   };
 }
+// A home-screen icon opens the page outside Telegram, where nothing is remembered yet: its address carries
+// the pairing itself, as the bot's button does.
+const standalone = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+function showInstall() {
+  const url = `${location.origin}${location.pathname}#k=${pairing.k}&t=${pairing.t}`;
+  const inTelegram = !!(TG && TG.platform !== 'unknown');
+  sheet(`<h3>Значок на экран iPhone</h3>
+    <small>${inTelegram ? '1. Нажмите «Открыть в Safari».<br>2. В Safari нажмите «Поделиться»' : '1. В Safari нажмите «Поделиться»'} (квадрат со стрелкой), затем «На экран „Домой“» и «Добавить».<br><br>В значке хранится ключ от машины: не пересылайте эту страницу и её адрес.</small>
+    ${inTelegram ? '<button class="pill on" id="safari">Открыть в Safari</button>' : ''}`);
+  if (inTelegram) $('safari').onclick = () => openLink(url);
+}
 const openLink = url => { if (TG && TG.openLink) TG.openLink(url); else window.open(url, '_blank'); };
 
 // ---------- views ----------
@@ -353,9 +457,9 @@ function windowsText() {
   if (!car || (car.winOpen === undefined && !car.win)) return { text:'Окна: нет данных', open:false };
   return windowsOpen() ? { text:'Окна открыты', open:true } : { text:'Все окна закрыты', open:false };
 }
-const head = (title, back) => `<div class="head">${back ? '<button class="round" data-act="back">‹</button>' : '<img class="logo" src="logo.png" alt="">'}
+const head = (title, back, extra = '') => `<div class="head">${back ? '<button class="round" data-act="back">‹</button>' : ''}
   <div style="flex:1;margin-left:${back ? 12 : 0}px"><div class="title">${title}</div>
-  <div class="sub">${!pairing.k ? 'Откройте пульт кнопкой из бота' : car ? 'Обновлено: ' + when(car.ts) : 'Данных ещё нет'}</div></div></div>`;
+  <div class="sub">${!pairing.k ? 'Откройте пульт кнопкой из бота' : car ? 'Обновлено: ' + when(car.ts) : 'Данных ещё нет'}</div></div>${extra}</div>`;
 const shown = {};   // the state each two-way card was last drawn in, to animate its change
 const tile = (it, mark) => {
   const f = face(it);
@@ -365,6 +469,23 @@ const tile = (it, mark) => {
   ${mark || ''}<span class="dot${f.on ? ' on' : ''}">${ic(f.icon, 28)}</span><span>${esc(f.name)}</span></button>`;
 };
 
+// bar, in the order of the wheels; a tyre over 10 % off the others is marked, as on the tablet
+function tires() {
+  const t = car && car.tire;
+  if (!t) return '';
+  const mean = t.reduce((a, b) => a + b, 0) / t.length;
+  return `<div class="tires">${['Пер. Л', 'Пер. П', 'Зад. Л', 'Зад. П'].map((name, i) =>
+    `<span>${name}<b class="${Math.abs(t[i] - mean) > 0.1 * mean ? 'odd' : ''}">${(t[i] / 100).toFixed(1).replace('.', ',')}</b></span>`).join('')}</div>`;
+}
+// the car's seven air modes as the tablet's three keys: F face, L legs, G glass
+const WIND = ['', 'F', 'FL', 'L', 'LG', 'G', 'FLG', 'FG'];
+function toggleWind(part) {
+  const now = WIND[(car && car.wind) || 0] || '';
+  const next = 'FLG'.split('').filter(p => p === part ? !now.includes(p) : now.includes(p)).join('');
+  const mode = WIND.indexOf(next);
+  if (mode < 1) return toast('Нужен хотя бы один поток');
+  run(LABELS['wind_' + mode], ['wind_' + mode], 'wind');
+}
 function viewMain() {
   const w = windowsText();
   const on = car && car.ac === 1;
@@ -376,6 +497,7 @@ function viewMain() {
     <button class="round pin" data-act="place" aria-label="Где машина">${ic('pin', 22)}</button>
     <img src="car.png" alt="">
     <div class="figs"><span>${ic('bat', 20)}<b>${val(car && car.soc, ' %')}</b></span><span>${ic('road', 20)}<b>${val(car && car.range, ' км')}</b></span><span>${ic('odo', 20)}<b>${val(car && car.odo, ' км')}</b></span></div>
+    ${tires()}
   </div>
   <div class="card"><div class="row"><span>Быстрые команды</span></div>
     <div class="grid">${mainIds.map(id => tile(item(id))).join('')}</div></div>
@@ -406,15 +528,18 @@ function viewClimate() {
   const temp = climate.temp || 22, fan = climate.fan || 1, on = c.ac === 1;
   const choice = (list, current) => list.map(([id, label, v]) => `<button class="${current === v ? 'on' : ''}" data-run="${id}">${label}</button>`).join('');
   const toggle = (name, isOn, onId, offId, icon) => `<button class="card toggle${isOn ? ' on' : ''}" data-run="${isOn ? offId : onId}">${ic(icon)}<span>${name}</span><small>${isOn ? 'включено' : 'выключено'}</small></button>`;
-  return head('Климат', true) + `
+  // the compressor key stands in the heading, as the owner asked: green while it is on
+  const comp = c.comp === 1 ? 'ac_comp_off' : 'ac_comp_on';
+  return head('Климат', true, `<button class="acbtn${c.comp === 1 ? ' on' : ''}${busy.has(comp) ? ' busy' : ''}" data-run="${comp}" aria-label="Кнопка AC">AC</button>`) + `
   <div class="card center"><small>${c.in !== undefined ? `Температура в салоне ${c.in}°` : 'Климат'}</small>
     <div class="temp"><button class="round big" data-act="t-">−</button><b>${degrees(temp)}</b><button class="round big" data-act="t+">+</button></div>
     <button class="pill${on ? ' on' : ''}" data-run="${on ? 'ac_off' : 'ac_on'}">${on ? 'Выключить климат' : 'Включить климат'}</button></div>
   <div class="card"><div class="row"><span>${ic('fan', 20)} Скорость обдува</span><b>${fan}</b></div>
     <div class="steps">${choice([1,2,3,4,5,6,7].map(n => ['fan_' + n, n, n]), fan)}</div></div>
-  <div class="card"><div class="row"><span>Куда дует</span></div><div class="steps">${choice([['flow_face','В лицо',0],['flow_feet','В ноги',1],['flow_all','Везде',2]], -1)}</div></div>
-  <div class="two">${toggle('Воздух внутри', c.circ === 1, 'air_in', 'air_out', 'recirc')}${toggle('Обдув лобового', c.defrost === 1, 'defrost_on', 'defrost_off', 'defr')}</div>
-  <div class="two">${toggle('Климат авто', c.auto === 1, 'auto_on', 'auto_off', 'fan')}<span></span></div>
+  <div class="card"><div class="row"><span>Куда дует</span><small>${c.wind ? '' : 'нет данных'}</small></div>
+    <div class="steps">${[['F','В лицо'],['L','В ноги'],['G','На стекло']].map(([p, label]) => `<button class="${(WIND[c.wind || 0] || '').includes(p) ? 'on' : ''}" data-wind="${p}">${label}</button>`).join('')}</div></div>
+  <div class="two"><button class="card toggle on" data-run="${c.circ === 1 ? 'air_out' : 'air_in'}">${ic(c.circ === 1 ? 'recirc' : 'fresh')}<span>${c.circ === 1 ? 'Воздух внутри' : 'Воздух снаружи'}</span><small>нажмите, чтобы сменить</small></button>${toggle('Обдув лобового', c.defrost === 1, 'defrost_on', 'defrost_off', 'defr')}</div>
+  <div class="two">${toggle('Обогрев зеркал', c.mirrorHeat === 1, 'mirror_heat_on', 'mirror_heat_off', 'mirrorheat')}${toggle('Климат авто', c.auto === 1, 'auto_on', 'auto_off', 'fan')}</div>
   <div class="card"><div class="row"><span>${ic('seat', 20)} Подогрев водителя</span></div><div class="steps">${choice([['seat_d0','Выкл',0],['seat_d1','1',1],['seat_d2','2',2]], c.seatD)}</div>
     <div class="row" style="margin-top:12px"><span>${ic('seat', 20)} Подогрев пассажира</span></div><div class="steps">${choice([['seat_p0','Выкл',0],['seat_p1','1',1],['seat_p2','2',2]], c.seatP)}</div></div>`;
 }
@@ -449,6 +574,7 @@ function viewSettings() {
     <div class="steps">${[['yandex','Яндекс Картах'],['google','Google Картах']].map(([v, label]) => `<button class="${settings.maps === v ? 'on' : ''}" data-maps="${v}">${label}</button>`).join('')}</div></div>
   <div class="card"><label class="line">Тема<select data-set="theme">${options([['auto','как в Telegram'],['light','светлая'],['dark','тёмная']], settings.theme)}</select></label>
     <div class="line">Связь с машиной<span>${pairing.k ? (online ? 'в сети' : 'настроена') : 'не настроена'}</span></div></div>
+  ${standalone() || !pairing.k ? '' : '<div class="card"><button class="pill" data-act="install">Значок на экран iPhone</button></div>'}
   <div class="card"><div class="row"><span>Журнал команд</span>${journal.length ? '<button class="link" data-act="clear">Очистить</button>' : ''}</div>
     ${journal.length ? journal.map(j => `<div class="line"><span>${esc(j.name)}<br><small>${when(j.t)}</small></span><small style="text-align:right">${esc(j.text)}</small></div>`).join('') : '<small>Пока пусто</small>'}</div>`;
 }
@@ -472,7 +598,7 @@ function render() {
   try { if (tab === 'climate' || tab === 'scenario' || editing === 'main') TG.BackButton.show(); else TG.BackButton.hide(); } catch (e) {}
 }
 function go(next) { tab = next; editing = null; render(); window.scrollTo(0, 0); }
-function back() { if (tab === 'scenario') go('settings'); else if (tab === 'commands') go('commands'); else go('main'); }
+function back() { if (!$('viewer').hidden) return closeViewer(); if (tab === 'scenario') go('settings'); else if (tab === 'commands') go('commands'); else go('main'); }
 
 // short press: climate settings; held for 0.9 s (the bar fills left to right): on with the saved values, or off
 const HOLD_MS = 900;
@@ -542,7 +668,7 @@ function setScenario(key, value) {
   store.set('scenarios', scenarios); render();
 }
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-tab],[data-act],[data-mark],[data-item],[data-run],[data-key],[data-scenario],[data-level],[data-maps]');
+  const t = e.target.closest('[data-tab],[data-act],[data-mark],[data-item],[data-run],[data-wind],[data-key],[data-scenario],[data-level],[data-maps]');
   if (!t) return;
   if (t.dataset.tab) return go(t.dataset.tab);
   if (t.dataset.maps) { settings.maps = t.dataset.maps; store.set('settings', settings); return render(); }
@@ -556,12 +682,14 @@ document.addEventListener('click', e => {
   }
   if (t.dataset.scenario) { scenario = t.dataset.scenario; return go('scenario'); }
   if (t.dataset.key) return setScenario(t.dataset.key, t.dataset.key === 'flow' ? t.dataset.value : +t.dataset.value);
+  if (t.dataset.wind) return toggleWind(t.dataset.wind);
   if (t.dataset.run) return run(LABELS[t.dataset.run], [t.dataset.run], t.dataset.run);
   if (t.dataset.item) { if (!editing) press(item(t.dataset.item)); return; }
   const act = t.dataset.act;
   if (act === 'back') back();
   if (act === 'ping') { online = null; render(); ping(true); }
   if (act === 'place') showPlace();
+  if (act === 'install') showInstall();
   if (act === 'order') { editing = 'order'; render(); }
   if (act === 'main-edit') { editing = 'main'; render(); }
   if (act === 'done') { editing = null; render(); }

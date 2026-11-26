@@ -10,6 +10,8 @@
 <link rel="apple-touch-icon" href="logo.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Dolphin">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#CDE3F2">
 <title>Пульт</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -17,7 +19,9 @@
 :root[data-theme=dark]{--bg1:#0A1628;--bg2:#0D1B2A;--card:#162032;--tile:#1D2940;--line:#2A3A52;--green:#4ADE80;--t:#E2E8F0;--t2:#94A3B8;--mut:#64748B;--nav:#0F1923;--on:#06210f;--bad:#EF4444;--warn:#FBBF24}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{background:linear-gradient(var(--bg1),var(--bg2)) fixed;color:var(--t);font-family:-apple-system,Roboto,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+/* the plain colour is what iOS paints the strip with the clock in, outside Telegram */
+html{background-color:var(--bg1)}
+body{background:linear-gradient(var(--bg1),var(--bg2)) fixed var(--bg1);color:var(--t);font-family:-apple-system,Roboto,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 main{max-width:480px;margin:0 auto;padding:10px 14px calc(84px + env(safe-area-inset-bottom))}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .head{display:flex;justify-content:space-between;align-items:center;margin:2px 4px 8px}
@@ -587,6 +591,7 @@ function applyTheme() {
   const dark = settings.theme === 'dark' || (settings.theme === 'auto' &&
     (TG && TG.platform !== 'unknown' ? TG.colorScheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches));
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#0A1628' : '#CDE3F2';
   try { TG.setHeaderColor(dark ? '#0A1628' : '#CDE3F2'); TG.setBackgroundColor(dark ? '#0A1628' : '#CDE3F2'); } catch (e) {}
 }
 let holding = false, dragging = null, renderLater = false;

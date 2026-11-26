@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://telegram.org; style-src 'unsafe-inline'; img-src 'self' data:; connect-src https://ntfy.sh">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Пульт</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg1:#CDE3F2;--bg2:#BDD7EB;--card:#DCEAF6;--tile:#F4F9FD;--line:#9BBDD8;--green:#16A34A;--t:#082647;--t2:#31577D;--mut:#5C7790;--nav:#D5E6F3;--on:#fff;--bad:#DC2626;--warn:#D97706}
+:root[data-theme=dark]{--bg1:#0A1628;--bg2:#0D1B2A;--card:#162032;--tile:#1D2940;--line:#2A3A52;--green:#4ADE80;--t:#E2E8F0;--t2:#94A3B8;--mut:#64748B;--nav:#0F1923;--on:#06210f;--bad:#EF4444;--warn:#FBBF24}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:linear-gradient(var(--bg1),var(--bg2)) fixed;color:var(--t);font-family:-apple-system,Roboto,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+main{max-width:480px;margin:0 auto;padding:10px 14px calc(84px + env(safe-area-inset-bottom))}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.head{display:flex;justify-content:space-between;align-items:center;margin:2px 4px 8px}
+.title{font-size:21px;font-weight:700}.sub{font-size:12px;color:var(--mut)}
+.round{width:40px;height:40px;border-radius:50%;background:var(--tile);display:flex;align-items:center;justify-content:center;color:var(--green);flex:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:12px;margin-bottom:10px}
+.hero{padding:0 0 10px;overflow:hidden;position:relative}
+.strip{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 8px 0 14px;font-size:13px;color:var(--t2)}
+.strip .win{display:flex;gap:6px;align-items:center;font-weight:600}.strip .win.open{color:var(--warn)}
+.badge{border-radius:999px;padding:6px 14px;font-weight:700;background:var(--tile);color:var(--mut)}
+.badge.on{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+.hero img{display:block;width:58%;max-width:260px;margin:12px auto 10px}
+.pin{position:absolute;right:12px;top:48px}
+.figs{display:flex;justify-content:space-around;font-size:15px}.figs span{display:flex;gap:6px;align-items:center;color:var(--t2)}.figs b{color:var(--t)}
+.row{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--t2);margin-bottom:8px}
+.link{color:var(--green);font-size:14px;padding:4px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 6px}
+.buttons{display:flex;gap:8px;margin-bottom:10px}.buttons .pill{margin:0;font-size:14px;padding:11px 6px}
+.cmd{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;line-height:1.15;text-align:center;color:var(--t2);touch-action:manipulation}
+.dot{width:52px;height:52px;border-radius:18px;background:var(--tile);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:28px}
+.cmd:active .dot,.dot.on{background:var(--green);color:var(--on)}
+.cmd.busy .dot{animation:pulse .8s infinite alternate}
+@keyframes pulse{to{opacity:.35}}
+.editing .cmd{touch-action:none}
+.mark{position:absolute;top:-6px;right:calc(50% - 36px);width:22px;height:22px;border-radius:50%;color:#fff;background:var(--bad);font-size:17px;line-height:20px;font-style:normal}
+.mark.add{background:var(--green)}
+.cmd.drag{opacity:.4}
+.clim{position:relative;overflow:hidden;display:flex;gap:14px;align-items:center;width:100%;text-align:left;padding:12px 14px;touch-action:pan-y}
+.clim .fill{position:absolute;inset:0;width:0;background:color-mix(in srgb,var(--green) 55%,transparent)}
+.clim.hold .fill{width:100%;transition:width .9s linear}
+.clim>*:not(.fill){position:relative}
+.sw{width:56px;height:56px;border-radius:18px;background:var(--tile);color:var(--mut);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;flex:none}
+.sw.on{background:var(--green);color:var(--on)}
+.clim b{display:block;font-size:18px}.clim small{color:var(--mut);font-size:13px}
+small{font-size:12px;color:var(--mut)}
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--nav);border-top:1px solid var(--line);display:flex;padding:8px 4px calc(10px + env(safe-area-inset-bottom));z-index:5}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--mut)}.tab.on{color:var(--green);font-weight:700}
+.center{text-align:center}
+.temp{display:flex;align-items:center;justify-content:space-around;margin:4px 0 10px}.temp b{font-size:62px;font-weight:300}
+.big{width:56px;height:56px;font-size:30px}
+.pill{display:flex;gap:8px;justify-content:center;align-items:center;width:100%;border-radius:14px;padding:12px;font-weight:700;background:var(--tile);color:var(--green)}
+.pill.on{background:var(--green);color:var(--on)}.pill.bad{color:var(--bad)}
+.steps{display:flex;gap:5px}.steps button{flex:1;padding:10px 0;border-radius:10px;background:var(--tile);color:var(--t2);font-size:14px}.steps button.on{background:var(--green);color:var(--on);font-weight:700}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.toggle{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;margin:0;font-size:13.5px}.toggle.on{border-color:var(--green)}.toggle.on small{color:var(--green)}
+.line{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.line:last-child{border-bottom:0}
+select,input[type=text]{font:inherit;font-size:16px;background:var(--tile);color:var(--t);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:130px}
+.shade{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);border-radius:22px 22px 0 0;width:100%;max-width:480px;max-height:85vh;overflow:auto;padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
+.sheet h3{font-size:17px;margin-bottom:10px}.sheet .pill{margin-top:8px}
+.toast{position:fixed;left:16px;right:16px;bottom:calc(86px + env(safe-area-inset-bottom));max-width:448px;margin:0 auto;background:var(--t);color:var(--bg1);border-radius:14px;padding:12px 14px;font-size:14px;text-align:center;z-index:20}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav class="tabs" id="tabs"></nav>
+<div class="shade" id="shade" hidden><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script>
+'use strict';
+const TG = window.Telegram && window.Telegram.WebApp;
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.hash.slice(1));
+const DEMO = params.has('demo');
+
+// ---------- storage (phone only) ----------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('dolphin.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) {
+    const s = JSON.stringify(v);
+    try { localStorage.setItem('dolphin.' + k, s); } catch (e) {}
+    try { if (TG && TG.isVersionAtLeast('6.9') && s.length < 4000) TG.CloudStorage.setItem(k, s); } catch (e) {}
+  }
+};
+let pairing = { k: params.get('k'), t: params.get('t') };
+if (pairing.k && pairing.t) store.set('pairing', pairing); else pairing = store.get('pairing', {});
+
+// ---------- icons ----------
+// Material Design Icons (Pictogrammers, Apache 2.0), filled 24×24 paths
+const MD = {"car":"M12,8.5H7L4,11H3C1.89,11 1,11.89 1,13V16H3.17C3.6,17.2 4.73,18 6,18C7.27,18 8.4,17.2 8.82,16H15.17C15.6,17.2 16.73,18 18,18C19.27,18 20.4,17.2 20.82,16H23V15C23,13.89 21.97,13.53 21,13L12,8.5M5.25,12L7.5,10H11.5L15.5,12H5.25M6,13.5A1.5,1.5 0 0,1 7.5,15A1.5,1.5 0 0,1 6,16.5A1.5,1.5 0 0,1 4.5,15A1.5,1.5 0 0,1 6,13.5M18,13.5A1.5,1.5 0 0,1 19.5,15A1.5,1.5 0 0,1 18,16.5A1.5,1.5 0 0,1 16.5,15A1.5,1.5 0 0,1 18,13.5Z","grid":"M3 11H11V3H3M5 5H9V9H5M13 21H21V13H13M15 15H19V19H15M3 21H11V13H3M5 15H9V19H5M13 3V11H21V3M19 9H15V5H19Z","gear":"M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10M10,22C9.75,22 9.54,21.82 9.5,21.58L9.13,18.93C8.5,18.68 7.96,18.34 7.44,17.94L4.95,18.95C4.73,19.03 4.46,18.95 4.34,18.73L2.34,15.27C2.21,15.05 2.27,14.78 2.46,14.63L4.57,12.97L4.5,12L4.57,11L2.46,9.37C2.27,9.22 2.21,8.95 2.34,8.73L4.34,5.27C4.46,5.05 4.73,4.96 4.95,5.05L7.44,6.05C7.96,5.66 8.5,5.32 9.13,5.07L9.5,2.42C9.54,2.18 9.75,2 10,2H14C14.25,2 14.46,2.18 14.5,2.42L14.87,5.07C15.5,5.32 16.04,5.66 16.56,6.05L19.05,5.05C19.27,4.96 19.54,5.05 19.66,5.27L21.66,8.73C21.79,8.95 21.73,9.22 21.54,9.37L19.43,11L19.5,12L19.43,13L21.54,14.63C21.73,14.78 21.79,15.05 21.66,15.27L19.66,18.73C19.54,18.95 19.27,19.04 19.05,18.95L16.56,17.95C16.04,18.34 15.5,18.68 14.87,18.93L14.5,21.58C14.46,21.82 14.25,22 14,22H10M11.25,4L10.88,6.61C9.68,6.86 8.62,7.5 7.85,8.39L5.44,7.35L4.69,8.65L6.8,10.2C6.4,11.37 6.4,12.64 6.8,13.8L4.68,15.36L5.43,16.66L7.86,15.62C8.63,16.5 9.68,17.14 10.87,17.38L11.24,20H12.76L13.13,17.39C14.32,17.14 15.37,16.5 16.14,15.62L18.57,16.66L19.32,15.36L17.2,13.81C17.6,12.64 17.6,11.37 17.2,10.2L19.31,8.65L18.56,7.35L16.15,8.39C15.38,7.5 14.32,6.86 13.12,6.62L12.75,4H11.25Z","pin":"M12,2C15.31,2 18,4.66 18,7.95C18,12.41 12,19 12,19C12,19 6,12.41 6,7.95C6,4.66 8.69,2 12,2M12,6A2,2 0 0,0 10,8A2,2 0 0,0 12,10A2,2 0 0,0 14,8A2,2 0 0,0 12,6M20,19C20,21.21 16.42,23 12,23C7.58,23 4,21.21 4,19C4,17.71 5.22,16.56 7.11,15.83L7.75,16.74C6.67,17.19 6,17.81 6,18.5C6,19.88 8.69,21 12,21C15.31,21 18,19.88 18,18.5C18,17.81 17.33,17.19 16.25,16.74L16.89,15.83C18.78,16.56 20,17.71 20,19Z","bat":"M16 20H8V6H16M16.67 4H15V2H9V4H7.33C6.6 4 6 4.6 6 5.33V20.67C6 21.4 6.6 22 7.33 22H16.67C17.41 22 18 21.41 18 20.67V5.33C18 4.6 17.4 4 16.67 4M15 16H9V19H15V16M15 7H9V10H15V7M15 11.5H9V14.5H15V11.5Z","road":"M18.1,4.8C18,4.3 17.6,4 17.1,4H13L13.2,7H10.8L11,4H6.8C6.3,4 5.9,4.4 5.8,4.8L3.1,18.8C3,19.4 3.5,20 4.1,20H10L10.3,15H13.7L14,20H19.8C20.4,20 20.9,19.4 20.8,18.8L18.1,4.8M10.4,13L10.6,9H13.2L13.4,13H10.4Z","odo":"M4,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M4,6V18H11V6H4M20,18V6H18.76C19,6.54 18.95,7.07 18.95,7.13C18.88,7.8 18.41,8.5 18.24,8.75L15.91,11.3L19.23,11.28L19.24,12.5L14.04,12.47L14,11.47C14,11.47 17.05,8.24 17.2,7.95C17.34,7.67 17.91,6 16.5,6C15.27,6.05 15.41,7.3 15.41,7.3L13.87,7.31C13.87,7.31 13.88,6.65 14.25,6H13V18H15.58L15.57,17.14L16.54,17.13C16.54,17.13 17.45,16.97 17.46,16.08C17.5,15.08 16.65,15.08 16.5,15.08C16.37,15.08 15.43,15.13 15.43,15.95H13.91C13.91,15.95 13.95,13.89 16.5,13.89C19.1,13.89 18.96,15.91 18.96,15.91C18.96,15.91 19,17.16 17.85,17.63L18.37,18H20M8.92,16H7.42V10.2L5.62,10.76V9.53L8.76,8.41H8.92V16Z","vent":"M4,10A1,1 0 0,1 3,9A1,1 0 0,1 4,8H12A2,2 0 0,0 14,6A2,2 0 0,0 12,4C11.45,4 10.95,4.22 10.59,4.59C10.2,5 9.56,5 9.17,4.59C8.78,4.2 8.78,3.56 9.17,3.17C9.9,2.45 10.9,2 12,2A4,4 0 0,1 16,6A4,4 0 0,1 12,10H4M19,12A1,1 0 0,0 20,11A1,1 0 0,0 19,10C18.72,10 18.47,10.11 18.29,10.29C17.9,10.68 17.27,10.68 16.88,10.29C16.5,9.9 16.5,9.27 16.88,8.88C17.42,8.34 18.17,8 19,8A3,3 0 0,1 22,11A3,3 0 0,1 19,14H5A1,1 0 0,1 4,13A1,1 0 0,1 5,12H19M18,18H4A1,1 0 0,1 3,17A1,1 0 0,1 4,16H18A3,3 0 0,1 21,19A3,3 0 0,1 18,22C17.17,22 16.42,21.66 15.88,21.12C15.5,20.73 15.5,20.1 15.88,19.71C16.27,19.32 16.9,19.32 17.29,19.71C17.47,19.89 17.72,20 18,20A1,1 0 0,0 19,19A1,1 0 0,0 18,18Z","winter":"M20.79,13.95L18.46,14.57L16.46,13.44V10.56L18.46,9.43L20.79,10.05L21.31,8.12L19.54,7.65L20,5.88L18.07,5.36L17.45,7.69L15.45,8.82L13,7.38V5.12L14.71,3.41L13.29,2L12,3.29L10.71,2L9.29,3.41L11,5.12V7.38L8.5,8.82L6.5,7.69L5.92,5.36L4,5.88L4.47,7.65L2.7,8.12L3.22,10.05L5.55,9.43L7.55,10.56V13.45L5.55,14.58L3.22,13.96L2.7,15.89L4.47,16.36L4,18.12L5.93,18.64L6.55,16.31L8.55,15.18L11,16.62V18.88L9.29,20.59L10.71,22L12,20.71L13.29,22L14.7,20.59L13,18.88V16.62L15.5,15.17L17.5,16.3L18.12,18.63L20,18.12L19.53,16.35L21.3,15.88L20.79,13.95M9.5,10.56L12,9.11L14.5,10.56V13.44L12,14.89L9.5,13.44V10.56Z","summer":"M3.55 19.09L4.96 20.5L6.76 18.71L5.34 17.29M12 6C8.69 6 6 8.69 6 12S8.69 18 12 18 18 15.31 18 12C18 8.68 15.31 6 12 6M20 13H23V11H20M17.24 18.71L19.04 20.5L20.45 19.09L18.66 17.29M20.45 5L19.04 3.6L17.24 5.39L18.66 6.81M13 1H11V4H13M6.76 5.39L4.96 3.6L3.55 5L5.34 6.81L6.76 5.39M1 13H4V11H1M13 20H11V23H13","find":"M9.61 16.11C9.61 14.03 10.59 12.19 12.1 11H5L6.5 6.5H17.5L18.72 10.16C19.56 10.53 20.3 11.07 20.91 11.74L18.92 6C18.72 5.42 18.16 5 17.5 5H6.5C5.84 5 5.28 5.42 5.08 6L3 12V20C3 20.55 3.45 21 4 21H5C5.55 21 6 20.55 6 20V19H10.29C9.86 18.13 9.61 17.15 9.61 16.11M6.5 16C5.67 16 5 15.33 5 14.5S5.67 13 6.5 13 8 13.67 8 14.5 7.33 16 6.5 16M20.71 20.7L20.7 20.71L20.71 20.7M16.11 11.61C18.61 11.61 20.61 13.61 20.61 16.11C20.61 17 20.36 17.82 19.92 18.5L23 21.61L21.61 23L18.5 19.93C17.8 20.36 17 20.61 16.11 20.61C13.61 20.61 11.61 18.61 11.61 16.11S13.61 11.61 16.11 11.61M16.11 13.61C14.73 13.61 13.61 14.73 13.61 16.11S14.73 18.61 16.11 18.61 18.61 17.5 18.61 16.11 17.5 13.61 16.11 13.61","seatheat":"M5 18C5 18 2 10 2 6S4 2 4 2H5C5 2 6 2 6 3S5 4 5 6 8 10 8 13 5 18 5 18M15 17C16.1 17 17 17.9 17 19V20C17 21.1 16.1 22 15 22H9C7 22 6 20.2 6 20.2C5.8 20 5.7 19.6 6 19.4C6 19.4 9 16.9 10 16.9H15M13.7 3.4L12.3 6.8L13.7 10.2L11.7 15L10 13.6L11.4 10.2L10 6.8L12 2L13.7 3.4M17.9 3.4L16.5 6.8L17.9 10.2L15.9 15L14.2 13.6L15.6 10.2L14.2 6.8L16.2 2L17.9 3.4M22 3.4L20.6 6.8L22 10.2L20 15L18.3 13.6L19.7 10.2L18.3 6.8L20.3 2L22 3.4","seat":"M7 18C7 18 4 10 4 6S6 2 6 2H7C7 2 8 2 8 3S7 4 7 6 10 10 10 13 7 18 7 18M12 17C11 17 8 19.5 8 19.5C7.7 19.7 7.8 20 8 20.3C8 20.3 9 22.1 11 22.1H17C18.1 22.1 19 21.2 19 20.1V19.1C19 18 18.1 17.1 17 17.1H12Z","defr":"M15,23C14.7,23 14.5,22.9 14.3,22.7C13.9,22.3 14,21.7 14.4,21.3V21.3C14.9,20.9 16.1,19.5 16.1,18.4C16.1,17.8 15.7,17.2 15.3,16.5C14.8,15.7 14.1,14.7 14.1,13.5C14.1,11.2 15.4,10.3 15.6,10.2C16.1,9.9 16.7,10.1 17,10.5C17.3,11 17.1,11.6 16.7,11.9V11.9C16.7,11.9 16.2,12.3 16.2,13.5C16.2,14.1 16.6,14.7 17,15.4C17.5,16.2 18.2,17.2 18.2,18.4C18.2,20.6 16.1,22.6 15.9,22.8C15.5,22.9 15.2,23 15,23M11.7,22.7C11.9,22.5 14,20.5 14,18.3C14,17.1 13.4,16.1 12.8,15.3C12.4,14.6 12,14 12,13.4C12,12.2 12.5,11.8 12.5,11.8V11.8C13,11.5 13.1,10.9 12.8,10.4C12.5,9.9 11.9,9.8 11.4,10.1C11.2,10.2 9.9,11.1 9.9,13.4C9.9,14.6 10.5,15.6 11.1,16.4C11.5,17.1 11.9,17.7 11.9,18.3C11.9,19.4 10.7,20.8 10.2,21.2V21.2C9.8,21.6 9.8,22.2 10.1,22.6C10.3,22.8 10.6,22.9 10.8,22.9C11.2,23 11.5,22.9 11.7,22.7M7.7,22.7C7.9,22.5 10,20.5 10,18.3C10,17.1 9.4,16.1 8.8,15.3C8.4,14.7 8,14.1 8,13.4C8,12.2 8.5,11.8 8.5,11.8V11.8C9,11.5 9.1,10.9 8.8,10.4C8.6,10 7.9,9.9 7.5,10.1C7.3,10.2 6,11.1 6,13.4C6,14.6 6.6,15.6 7.2,16.4C7.6,17.1 8,17.7 8,18.3C8,19.4 6.8,20.8 6.3,21.2V21.2C5.9,21.6 5.9,22.2 6.2,22.6C6.5,22.9 6.7,23 7,23C7.2,23 7.5,22.9 7.7,22.7M12,3C9.4,3 1,3.3 1,7C1,9.4 2.2,15.4 2.8,18H4L4.8,18H5V16H4.4C3.8,13.1 3,8.8 3,7C3,6 7.4,5 12,5C16.6,5 21,6 21,7C21,8.8 20.2,13.1 19.6,16H19V18H19.2L20,18H21.2C21.8,15.4 23,9.4 23,7C23,3.3 14.6,3 12,3Z","fan":"M12,11A1,1 0 0,0 11,12A1,1 0 0,0 12,13A1,1 0 0,0 13,12A1,1 0 0,0 12,11M12.5,2C17,2 17.11,5.57 14.75,6.75C13.76,7.24 13.32,8.29 13.13,9.22C13.61,9.42 14.03,9.73 14.35,10.13C18.05,8.13 22.03,8.92 22.03,12.5C22.03,17 18.46,17.1 17.28,14.73C16.78,13.74 15.72,13.3 14.79,13.11C14.59,13.59 14.28,14 13.88,14.34C15.87,18.03 15.08,22 11.5,22C7,22 6.91,18.42 9.27,17.24C10.25,16.75 10.69,15.71 10.89,14.79C10.4,14.59 9.97,14.27 9.65,13.87C5.96,15.85 2,15.07 2,11.5C2,7 5.56,6.89 6.74,9.26C7.24,10.25 8.29,10.68 9.22,10.87C9.41,10.39 9.73,9.97 10.14,9.65C8.15,5.96 8.94,2 12.5,2Z","fanoff":"M12.5,2C9.64,2 8.57,4.55 9.29,7.47L15,13.16C15.87,13.37 16.81,13.81 17.28,14.73C18.46,17.1 22.03,17 22.03,12.5C22.03,8.92 18.05,8.13 14.35,10.13C14.03,9.73 13.61,9.42 13.13,9.22C13.32,8.29 13.76,7.24 14.75,6.75C17.11,5.57 17,2 12.5,2M3.28,4L2,5.27L4.47,7.73C3.22,7.74 2,8.87 2,11.5C2,15.07 5.96,15.85 9.65,13.87C9.97,14.27 10.4,14.59 10.89,14.79C10.69,15.71 10.25,16.75 9.27,17.24C6.91,18.42 7,22 11.5,22C13.8,22 14.94,20.36 14.94,18.21L18.73,22L20,20.72L3.28,4Z","recirc":"M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,13.57 4.46,15.03 5.24,16.26L6.7,14.8C6.25,13.97 6,13 6,12A6,6 0 0,1 12,6M18.76,7.74L17.3,9.2C17.74,10.04 18,11 18,12A6,6 0 0,1 12,18V15L8,19L12,23V20A8,8 0 0,0 20,12C20,10.43 19.54,8.97 18.76,7.74Z"};
+// our own, drawn with a line: a car's side window with its direction, and a wing mirror
+const GLASS = '<path d="M2.500 18v-2C5.500 9.500 9.500 6 15 6h4.500c1.100 0 2 .9 2 2v10z"/>';
+const MIRROR = '<path d="M3.500 8c0-2 2-3.500 5-3.500h8c2.500 0 4 1.500 4 3.500v3c0 3-2 4.500-5 4.500h-6c-3.500 0-6-2.500-6-5.500z"/><path d="M15 15.500v3.500h5"/>';
+const LINE = {
+  winup: GLASS + '<path d="M14.500 15.500v-6M11.800 12l2.700-2.800 2.700 2.800"/>',
+  windown: GLASS + '<path d="M14.500 9v6M11.800 12.600l2.700 2.800 2.700-2.800"/>',
+  fold: MIRROR + '<path d="M13 10H8M10 8l-2 2 2 2"/>',
+  mirrorheat: MIRROR + '<path d="M8.500 7.500c-1 1.200 1 2.300 0 3.700s0 2 0 2M12 7.500c-1 1.200 1 2.300 0 3.700s0 2 0 2M15.500 7.500c-1 1.200 1 2.300 0 3.700s0 2 0 2"/>'
+};
+const ic = (n, s = 24) => LINE[n]
+  ? `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${LINE[n]}</svg>`
+  : `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor"><path d="${MD[n]}"/></svg>`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// ---------- commands ----------
+const temps = Array.from({ length: 17 }, (_, i) => 16 + i);
+const LABELS = {
+  win_open:'Открыть окна', win_close:'Закрыть окна', win_vent:'Проветрить', ac_on:'Кондиционер вкл', ac_off:'Кондиционер выкл',
+  auto_on:'Климат авто вкл', auto_off:'Климат авто выкл', air_in:'Воздух внутри', air_out:'Воздух снаружи',
+  flow_face:'Обдув в лицо', flow_feet:'Обдув в ноги', flow_all:'Обдув везде', defrost_on:'Обдув лобового вкл', defrost_off:'Обдув лобового выкл',
+  seat_d0:'Подогрев водителя выкл', seat_d1:'Подогрев водителя 1', seat_d2:'Подогрев водителя 2',
+  seat_p0:'Подогрев пассажира выкл', seat_p1:'Подогрев пассажира 1', seat_p2:'Подогрев пассажира 2',
+  mirror_on:'Складывание зеркал вкл', mirror_off:'Складывание зеркал выкл', drl_on:'Ходовые огни вкл', drl_off:'Ходовые огни выкл',
+  charger_on:'Беспроводная зарядка вкл', charger_off:'Беспроводная зарядка выкл',
+  mirror_heat_on:'Обогрев зеркал вкл', mirror_heat_off:'Обогрев зеркал выкл'
+};
+temps.forEach(t => LABELS['temp_' + t] = `Температура ${t}°`);
+for (let i = 1; i <= 7; i++) LABELS['fan_' + i] = `Обдув ${i}`;
+
+// the commands are fixed; the owner orders them, picks those of the main screen and tunes the two scenarios
+const ITEMS = [
+  { id:'wc', name:'Закрыть окна', icon:'winup', cmds:['win_close'] },
+  { id:'wo', name:'Открыть окна', icon:'windown', cmds:['win_open'] },
+  { id:'wv', name:'Проветрить', icon:'vent', cmds:['win_vent'] },
+  { id:'winter', name:'Зимний запуск', icon:'winter', scenario:true },
+  { id:'summer', name:'Летний запуск', icon:'summer', scenario:true },
+  { id:'find', name:'Найти машину', icon:'find', find:true },
+  { id:'sd', name:'Подогрев водителя', icon:'seatheat', cmds:['seat_d2'] },
+  { id:'df', name:'Обдув лобового', icon:'defr', cmds:['defrost_on'] },
+  { id:'mh', name:'Обогрев зеркал', icon:'mirrorheat', cmds:['mirror_heat_on'] },
+  { id:'sp', name:'Подогрев пассажира', icon:'seatheat', cmds:['seat_p2'] },
+  { id:'so', name:'Подогрев выкл', icon:'seat', cmds:['seat_d0','seat_p0'] },
+  { id:'ac0', name:'Выключить климат', icon:'fanoff', cmds:['ac_off'] },
+  { id:'mi', name:'Сложить зеркала', icon:'fold', cmds:['mirror_on'] }
+];
+const IDS = ITEMS.map(i => i.id);
+const item = id => ITEMS.find(i => i.id === id);
+const MAIN_MAX = 9;
+// a saved order keeps only commands that still exist and takes the new ones at the end
+const ordered = saved => saved.filter(id => IDS.includes(id)).concat(IDS.filter(id => !saved.includes(id)));
+let order = ordered(store.get('order', IDS));
+let mainIds = store.get('main', IDS.slice(0, MAIN_MAX)).filter(id => IDS.includes(id));
+const SCENARIO_DEFAULTS = {
+  winter: { temp:26, fan:3, flow:'flow_feet', seatD:2, seatP:0, mirror:1 },
+  summer: { temp:18, fan:4, flow:'flow_face', seatD:0, seatP:0, mirror:0 }
+};
+let scenarios = Object.assign({}, SCENARIO_DEFAULTS, store.get('scenarios', {}));
+const scenarioCommands = id => {
+  const c = scenarios[id];
+  return ['ac_on', `temp_${c.temp}`, `fan_${c.fan}`, c.flow, `seat_d${c.seatD}`, `seat_p${c.seatP}`, c.mirror ? 'mirror_heat_on' : 'mirror_heat_off'];
+};
+let settings = store.get('settings', { theme:'auto' });
+let journal = store.get('journal', []);
+let car = store.get('car', null);      // the last status the car sent
+let climate = store.get('climate', {});  // the last temperature and fan the car reported
+let tab = 'main', editing = null, scenario = null, online = null, busy = new Set();
+function remember(status) {
+  if (status.temp >= 16 && status.temp <= 32) climate.temp = status.temp;
+  if (status.fan >= 1 && status.fan <= 7) climate.fan = status.fan;
+  store.set('climate', climate);
+}
+
+// ---------- sealing: base64url(iv12 + ciphertext + tag), AES-256-GCM, as the tablet does ----------
+const b64 = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+let keyPromise;
+const aes = () => keyPromise || (keyPromise = crypto.subtle.importKey('raw', unb64(pairing.k), 'AES-GCM', false, ['encrypt', 'decrypt']));
+async function seal(text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, await aes(), new TextEncoder().encode(text)));
+  const out = new Uint8Array(12 + data.length); out.set(iv); out.set(data, 12);
+  return b64(out);
+}
+async function open_(message) {
+  try {
+    const all = unb64(message.trim());
+    const plain = await crypto.subtle.decrypt({ name:'AES-GCM', iv: all.slice(0, 12) }, await aes(), all.slice(12));
+    return JSON.parse(new TextDecoder().decode(plain));
+  } catch (e) { return null; }
+}
+
+// ---------- link ----------
+const waiting = new Map();   // request id -> resolve
+let source = null, lastPing = 0;
+function listen() {
+  if (DEMO || !pairing.k) return;
+  if (source) source.close();
+  source = new EventSource(`https://ntfy.sh/${pairing.t}s/sse?since=12h`);
+  source.onmessage = async e => {
+    let event; try { event = JSON.parse(e.data); } catch (x) { return; }
+    const status = await open_(event.message || '');
+    if (!status) return;
+    if (!car || status.ts >= car.ts) { car = status; store.set('car', car); remember(status); }
+    const done = waiting.get(status.re);
+    if (done) { waiting.delete(status.re); online = true; done(status); }
+    render();
+  };
+}
+/** Sends the commands (none = only ask for the status); resolves with the car's answer or null. */
+async function request(cmds, wait = 12000 + cmds.length * 4000) {
+  if (!pairing.k) return null;
+  if (DEMO) return demo(cmds);
+  const id = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
+  const answer = new Promise(resolve => {
+    waiting.set(id, resolve);
+    setTimeout(() => { if (waiting.delete(id)) resolve(null); }, wait);
+  });
+  try {
+    const r = await fetch(`https://ntfy.sh/${pairing.t}c`, { method:'POST', body: await seal(JSON.stringify({ id, ts: Date.now(), c: cmds })) });
+    if (!r.ok) throw new Error(r.status);
+  } catch (e) { waiting.delete(id); return { failed:true }; }
+  return answer;
+}
+async function ping(force) {
+  if (!force && Date.now() - lastPing < 20000) return;
+  lastPing = Date.now();
+  const a = await request([], 10000);
+  online = !!(a && !a.failed);
+  render();
+}
+function demo(cmds) {
+  car = Object.assign({ soc:80, range:290, odo:66599, in:25, ac:0, temp:22, fan:2, circ:1, auto:0, defrost:0, seatD:0, seatP:0, win:[0,0,0,0], lat:41.311, lon:69.279 }, car || {}, { ts: Date.now() });
+  cmds.forEach(c => {
+    if (c === 'ac_on') car.ac = 1; if (c === 'ac_off') car.ac = 0;
+    if (c.startsWith('temp_')) car.temp = +c.slice(5); if (c.startsWith('fan_')) car.fan = +c.slice(4);
+    if (c === 'win_open') car.win = [100,100,100,100]; if (c === 'win_close') car.win = [0,0,0,0]; if (c === 'win_vent') car.win = [10,10,10,10];
+    if (c.startsWith('seat_d')) car.seatD = +c.slice(6); if (c.startsWith('seat_p')) car.seatP = +c.slice(6);
+  });
+  remember(car); online = true;
+  const res = {}; cmds.forEach(c => res[c] = true);
+  return new Promise(r => setTimeout(() => { render(); r({ res }); }, 600));
+}
+
+// ---------- running ----------
+async function run(name, cmds, tag) {
+  if (!pairing.k) return toast('Пульт не связан с машиной: откройте его из бота');
+  if (online === false) { ping(true); return toast('Машина не в сети'); }
+  if (tag) { if (busy.has(tag)) return; busy.add(tag); render(); }
+  haptic('light');
+  const a = await request(cmds);
+  if (tag) busy.delete(tag);
+  let text, ok = false;
+  if (!a) { text = 'Машина не ответила'; online = false; }
+  else if (a.failed) text = 'Нет интернета на телефоне';
+  else {
+    const bad = Object.entries(a.res || {}).filter(([, v]) => v !== true);
+    ok = !bad.length;
+    text = ok ? 'Выполнено' : bad.map(([id, why]) => `${LABELS[id] || id}: ${why}`).join('; ');
+  }
+  journal = [{ t: Date.now(), name, text }, ...journal].slice(0, 40); store.set('journal', journal);
+  toast(`${name}: ${text}`); haptic(ok ? 'success' : 'error'); render();
+}
+function haptic(kind) {
+  try { if (kind === 'light' || kind === 'medium') TG.HapticFeedback.impactOccurred(kind); else TG.HapticFeedback.notificationOccurred(kind); } catch (e) {}
+}
+let toastTimer;
+function toast(text) {
+  $('toast').textContent = text; $('toast').hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').hidden = true, 4000);
+}
+function sheet(html) { $('sheet').innerHTML = html; $('shade').hidden = false; }
+function closeSheet() { $('shade').hidden = true; }
+$('shade').addEventListener('click', e => { if (e.target === $('shade')) closeSheet(); });
+
+function press(it) {
+  if (it.find) return showPlace();
+  run(it.name, it.scenario ? scenarioCommands(it.id) : it.cmds, it.id);
+}
+function showPlace() {
+  if (!car || car.lat === undefined) { ping(true); return toast('Машина ещё не передала место'); }
+  const map = `https://maps.google.com/?q=${car.lat},${car.lon}`;
+  sheet(`<h3>Где машина</h3><small>По данным на ${when(car.ts)}</small>
+    <button class="pill on" id="map">Открыть на карте</button><button class="pill" id="share">Поделиться</button>`);
+  $('map').onclick = () => openLink(map);
+  $('share').onclick = () => {
+    const url = `https://t.me/share/url?url=${encodeURIComponent(map)}&text=${encodeURIComponent('Моя машина здесь')}`;
+    if (TG && TG.openTelegramLink) TG.openTelegramLink(url); else window.open(url, '_blank');
+  };
+}
+const openLink = url => { if (TG && TG.openLink) TG.openLink(url); else window.open(url, '_blank'); };
+
+// ---------- views ----------
+const when = ts => {
+  const d = new Date(ts), now = new Date();
+  const time = d.toLocaleTimeString('ru', { hour:'2-digit', minute:'2-digit' });
+  return d.toDateString() === now.toDateString() ? `сегодня в ${time}` : `${d.toLocaleDateString('ru', { day:'numeric', month:'short' })} в ${time}`;
+};
+const val = (v, unit) => v === undefined || v === null ? '—' : `${v.toLocaleString('ru')}${unit}`;
+function windowsText() {
+  if (!car || !car.win) return { text:'Окна: нет данных', open:false };
+  const open = car.win.filter(w => w > 0);
+  return open.length ? { text:'Окна открыты', open:true } : { text:'Все окна закрыты', open:false };
+}
+const head = (title, back) => `<div class="head">${back ? '<button class="round" data-act="back">‹</button>' : ''}
+  <div style="flex:1;margin-left:${back ? 12 : 0}px"><div class="title">${title}</div>
+  <div class="sub">${!pairing.k ? 'Откройте пульт кнопкой из бота' : car ? 'Обновлено: ' + when(car.ts) : 'Данных ещё нет'}</div></div></div>`;
+const tile = (it, mark) => `<button class="cmd${busy.has(it.id) ? ' busy' : ''}" data-item="${it.id}">
+  ${mark || ''}<span class="dot">${ic(it.icon, 28)}</span><span>${esc(it.name)}</span></button>`;
+
+function viewMain() {
+  const w = windowsText();
+  const on = car && car.ac === 1;
+  const last = [climate.fan ? `обдув ${climate.fan}` : '', car && car.in !== undefined ? `в салоне ${car.in}°` : ''].filter(Boolean).join(' · ');
+  return head('BYD Dolphin') + `
+  <div class="card hero">
+    <div class="strip"><span class="win${w.open ? ' open' : ''}">${ic(w.open ? 'windown' : 'winup', 20)} ${w.text}</span>
+      <button class="badge${online ? ' on' : ''}" data-act="ping">${online === null ? '… Проверяю' : online ? '● Онлайн' : '○ Не в сети'}</button></div>
+    <button class="round pin" data-act="place" aria-label="Где машина">${ic('pin', 22)}</button>
+    <img src="car.png" alt="">
+    <div class="figs"><span>${ic('bat', 20)}<b>${val(car && car.soc, ' %')}</b></span><span>${ic('road', 20)}<b>${val(car && car.range, ' км')}</b></span><span>${ic('odo', 20)}<b>${val(car && car.odo, ' км')}</b></span></div>
+  </div>
+  <div class="card"><div class="row"><span>Быстрые команды</span></div>
+    <div class="grid">${mainIds.map(id => tile(item(id))).join('')}</div></div>
+  <button class="card clim" id="clim"><span class="fill"></span>
+    <span class="sw${on ? ' on' : ''}">${on ? 'ON' : 'OFF'}</span>
+    <span><b>Климат${climate.temp ? ` · ${climate.temp}°` : ''}</b><small>${last}</small></span></button>`;
+}
+// «order» moves the tiles of this tab; «main» chooses what the main screen shows, and in which order
+function viewCommands() {
+  if (editing === 'main') {
+    const rest = order.filter(id => !mainIds.includes(id));
+    return head('Главный экран') + `<div class="card editing">
+        <div class="row"><span>На главном: ${mainIds.length} из ${MAIN_MAX}</span><button class="link" data-act="done">Готово</button></div>
+        <div class="grid" id="drag">${mainIds.map(id => tile(item(id), `<i class="mark" data-mark="${id}">−</i>`)).join('')}</div></div>
+      <div class="card"><div class="row"><span>Можно добавить</span></div>
+        <div class="grid">${rest.map(id => tile(item(id), `<i class="mark add" data-mark="${id}">+</i>`)).join('') || '<small>Всё уже на главном</small>'}</div></div>
+      <div class="card"><small>Перетаскивайте значки, чтобы поменять порядок. «−» убирает с главного, «+» добавляет.</small></div>`;
+  }
+  const moving = editing === 'order';
+  return head('Команды') + `<div class="buttons">
+      <button class="pill${moving ? ' on' : ''}" data-act="${moving ? 'done' : 'order'}">${moving ? 'Готово' : 'Изменить'}</button>
+      <button class="pill" data-act="main-edit">Главный экран</button></div>
+    <div class="card${moving ? ' editing' : ''}"><div class="grid" id="drag">${order.map(id => tile(item(id))).join('')}</div></div>
+    ${moving ? '<div class="card"><small>Перетащите значок на нужное место.</small></div>' : ''}`;
+}
+function viewClimate() {
+  const c = car || {};
+  const temp = climate.temp || 22, fan = climate.fan || 1, on = c.ac === 1;
+  const choice = (list, current) => list.map(([id, label, v]) => `<button class="${current === v ? 'on' : ''}" data-run="${id}">${label}</button>`).join('');
+  const toggle = (name, isOn, onId, offId, icon) => `<button class="card toggle${isOn ? ' on' : ''}" data-run="${isOn ? offId : onId}">${ic(icon)}<span>${name}</span><small>${isOn ? 'включено' : 'выключено'}</small></button>`;
+  return head('Климат', true) + `
+  <div class="card center"><small>${c.in !== undefined ? `Температура в салоне ${c.in}°` : 'Климат'}</small>
+    <div class="temp"><button class="round big" data-act="t-">−</button><b>${temp}°</b><button class="round big" data-act="t+">+</button></div>
+    <button class="pill${on ? ' on' : ''}" data-run="${on ? 'ac_off' : 'ac_on'}">${on ? 'Выключить климат' : 'Включить климат'}</button></div>
+  <div class="card"><div class="row"><span>${ic('fan', 20)} Скорость обдува</span><b>${fan}</b></div>
+    <div class="steps">${choice([1,2,3,4,5,6,7].map(n => ['fan_' + n, n, n]), fan)}</div></div>
+  <div class="card"><div class="row"><span>Куда дует</span></div><div class="steps">${choice([['flow_face','В лицо',0],['flow_feet','В ноги',1],['flow_all','Везде',2]], -1)}</div></div>
+  <div class="two">${toggle('Воздух внутри', c.circ === 1, 'air_in', 'air_out', 'recirc')}${toggle('Обдув лобового', c.defrost === 1, 'defrost_on', 'defrost_off', 'defr')}</div>
+  <div class="two">${toggle('Климат авто', c.auto === 1, 'auto_on', 'auto_off', 'fan')}<span></span></div>
+  <div class="card"><div class="row"><span>${ic('seat', 20)} Подогрев водителя</span></div><div class="steps">${choice([['seat_d0','Выкл',0],['seat_d1','1',1],['seat_d2','2',2]], c.seatD)}</div>
+    <div class="row" style="margin-top:12px"><span>${ic('seat', 20)} Подогрев пассажира</span></div><div class="steps">${choice([['seat_p0','Выкл',0],['seat_p1','1',1],['seat_p2','2',2]], c.seatP)}</div></div>`;
+}
+const options = (list, current) => list.map(([v, label]) => `<option value="${v}"${String(v) === String(current) ? ' selected' : ''}>${label}</option>`).join('');
+function viewScenario() {
+  const c = scenarios[scenario], it = item(scenario);
+  const choice = (key, list) => list.map(([v, label]) => `<button class="${c[key] === v ? 'on' : ''}" data-key="${key}" data-value="${v}">${label}</button>`).join('');
+  return head(it.name, true) + `
+  <div class="card center"><small>Температура</small>
+    <div class="temp"><button class="round big" data-act="s-">−</button><b>${c.temp}°</b><button class="round big" data-act="s+">+</button></div></div>
+  <div class="card"><div class="row"><span>${ic('fan', 20)} Скорость обдува</span><b>${c.fan}</b></div>
+    <div class="steps">${choice('fan', [1,2,3,4,5,6,7].map(n => [n, n]))}</div></div>
+  <div class="card"><div class="row"><span>${ic('vent', 20)} Потоки воздуха</span></div>
+    <div class="steps">${choice('flow', [['flow_face','В лицо'],['flow_feet','В ноги'],['flow_all','Везде']])}</div></div>
+  <div class="card"><div class="row"><span>${ic('seatheat', 20)} Подогрев водителя</span></div><div class="steps">${choice('seatD', [[0,'Выкл'],[1,'1'],[2,'2']])}</div>
+    <div class="row" style="margin-top:12px"><span>${ic('seatheat', 20)} Подогрев пассажира</span></div><div class="steps">${choice('seatP', [[0,'Выкл'],[1,'1'],[2,'2']])}</div></div>
+  <div class="card"><div class="row"><span>${ic('mirrorheat', 20)} Обогрев зеркал</span></div><div class="steps">${choice('mirror', [[0,'Выкл'],[1,'Вкл']])}</div></div>`;
+}
+function viewSettings() {
+  const row = id => { const c = scenarios[id]; return `<button class="card clim" data-scenario="${id}"><span class="sw">${ic(item(id).icon, 30)}</span>
+    <span><b>${item(id).name}</b><small>${c.temp}° · обдув ${c.fan}${c.seatD || c.seatP ? ' · подогрев сидений' : ''}${c.mirror ? ' · зеркала' : ''}</small></span></button>`; };
+  return head('Настройки') + `
+  <div class="row" style="margin:4px 4px 8px"><span>Сценарии</span></div>${row('winter')}${row('summer')}
+  <div class="card"><label class="line">Тема<select data-set="theme">${options([['auto','как в Telegram'],['light','светлая'],['dark','тёмная']], settings.theme)}</select></label>
+    <div class="line">Связь с машиной<span>${pairing.k ? (online ? 'в сети' : 'настроена') : 'не настроена'}</span></div></div>
+  <div class="card"><div class="row"><span>Журнал команд</span>${journal.length ? '<button class="link" data-act="clear">Очистить</button>' : ''}</div>
+    ${journal.length ? journal.map(j => `<div class="line"><span>${esc(j.name)}<br><small>${when(j.t)}</small></span><small style="text-align:right">${esc(j.text)}</small></div>`).join('') : '<small>Пока пусто</small>'}</div>`;
+}
+
+function applyTheme() {
+  const dark = settings.theme === 'dark' || (settings.theme === 'auto' &&
+    (TG && TG.platform !== 'unknown' ? TG.colorScheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches));
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  try { TG.setHeaderColor(dark ? '#0A1628' : '#CDE3F2'); TG.setBackgroundColor(dark ? '#0A1628' : '#CDE3F2'); } catch (e) {}
+}
+let holding = false, dragging = null, renderLater = false;
+function render() {
+  // a redraw in the middle of a long press or a drag would drop the finger's element
+  if (holding || dragging) { renderLater = true; return; }
+  applyTheme();
+  $('app').innerHTML = { main: viewMain, commands: viewCommands, climate: viewClimate, settings: viewSettings, scenario: viewScenario }[tab]();
+  $('tabs').innerHTML = [['main','car','Машина'], ['commands','grid','Команды'], ['settings','gear','Настройки']]
+    .map(([id, icon, label]) => `<button class="tab${tab === id || (id === 'main' && tab === 'climate') || (id === 'settings' && tab === 'scenario') ? ' on' : ''}" data-tab="${id}">${ic(icon, id === 'main' ? 28 : 24)}<span>${label}</span></button>`).join('');
+  if (tab === 'main') bindClimate();
+  if (tab === 'commands' && editing) bindDrag();
+  try { if (tab === 'climate' || tab === 'scenario' || editing === 'main') TG.BackButton.show(); else TG.BackButton.hide(); } catch (e) {}
+}
+function go(next) { tab = next; editing = null; render(); window.scrollTo(0, 0); }
+function back() { if (tab === 'scenario') go('settings'); else if (tab === 'commands') go('commands'); else go('main'); }
+
+// short press: climate settings; held for 0.9 s (the bar fills left to right): on with the saved values, or off
+const HOLD_MS = 900;
+function bindClimate() {
+  const bar = $('clim');
+  let timer = null, x = 0, y = 0, fired = false, cancelled = false;
+  const stop = () => {
+    clearTimeout(timer); timer = null; holding = false; bar.classList.remove('hold');
+    if (renderLater) { renderLater = false; render(); }
+  };
+  bar.onpointerdown = e => {
+    x = e.clientX; y = e.clientY; fired = false; cancelled = false; holding = true;
+    void bar.offsetWidth; bar.classList.add('hold');
+    timer = setTimeout(() => {
+      fired = true; haptic('medium'); stop();
+      const on = car && car.ac === 1;
+      // only the power: the car keeps its own temperature and fan
+      run(on ? 'Климат выключить' : 'Климат включить', [on ? 'ac_off' : 'ac_on'], 'clim');
+    }, HOLD_MS);
+  };
+  bar.onpointermove = e => { if (timer && Math.hypot(e.clientX - x, e.clientY - y) > 12) { cancelled = true; stop(); } };
+  bar.onpointercancel = () => { cancelled = true; stop(); };
+  bar.onpointerup = () => { const short = !fired && !cancelled && timer !== null; stop(); if (short) go('climate'); };
+  bar.oncontextmenu = e => e.preventDefault();
+}
+function bindDrag() {
+  const grid = $('drag');
+  let start = null;
+  grid.onpointerdown = e => {
+    const el = e.target.closest('[data-item]');
+    if (!el || e.target.dataset.mark) return;
+    start = { el, x: e.clientX, y: e.clientY };
+    grid.setPointerCapture(e.pointerId);
+  };
+  grid.onpointermove = e => {
+    if (!start) return;
+    if (!dragging && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) { dragging = start.el; dragging.classList.add('drag'); }
+    if (!dragging) return;
+    const over = document.elementFromPoint(e.clientX, e.clientY);
+    const target = over && over.closest('[data-item]');
+    if (target && target !== dragging && target.parentNode === grid) {
+      const kids = [...grid.children];
+      grid.insertBefore(dragging, kids.indexOf(dragging) < kids.indexOf(target) ? target.nextSibling : target);
+    }
+  };
+  grid.onpointerup = grid.onpointercancel = () => {
+    const moved = dragging;
+    start = null; dragging = null; renderLater = false;
+    if (!moved) return;
+    const now = [...grid.children].map(el => el.dataset.item);
+    if (editing === 'main') { mainIds = now; store.set('main', mainIds); } else { order = now; store.set('order', order); }
+    render();
+  };
+}
+
+// ---------- events ----------
+let tempTimer = null;
+function stepTemp(delta) {
+  climate.temp = Math.max(16, Math.min(32, (climate.temp || 22) + delta)); render();
+  clearTimeout(tempTimer);
+  const next = climate.temp;
+  tempTimer = setTimeout(() => run(`Температура ${next}°`, ['temp_' + next]), 900);
+}
+function setScenario(key, value) {
+  scenarios = Object.assign({}, scenarios, { [scenario]: Object.assign({}, scenarios[scenario], { [key]: value }) });
+  store.set('scenarios', scenarios); render();
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-tab],[data-act],[data-mark],[data-item],[data-run],[data-key],[data-scenario]');
+  if (!t) return;
+  if (t.dataset.tab) return go(t.dataset.tab);
+  if (t.dataset.mark) {
+    const id = t.dataset.mark;
+    if (mainIds.includes(id)) mainIds = mainIds.filter(x => x !== id);
+    else if (mainIds.length >= MAIN_MAX) return toast(`На главном помещается ${MAIN_MAX}: сначала уберите лишнее`);
+    else mainIds = mainIds.concat(id);
+    store.set('main', mainIds); return render();
+  }
+  if (t.dataset.scenario) { scenario = t.dataset.scenario; return go('scenario'); }
+  if (t.dataset.key) return setScenario(t.dataset.key, t.dataset.key === 'flow' ? t.dataset.value : +t.dataset.value);
+  if (t.dataset.run) return run(LABELS[t.dataset.run], [t.dataset.run], t.dataset.run);
+  if (t.dataset.item) { if (!editing) press(item(t.dataset.item)); return; }
+  const act = t.dataset.act;
+  if (act === 'back') back();
+  if (act === 'ping') { online = null; render(); ping(true); }
+  if (act === 'place') showPlace();
+  if (act === 'order') { editing = 'order'; render(); }
+  if (act === 'main-edit') { editing = 'main'; render(); }
+  if (act === 'done') { editing = null; render(); }
+  if (act === 'clear') { journal = []; store.set('journal', journal); render(); }
+  if (act === 't-') stepTemp(-1);
+  if (act === 't+') stepTemp(1);
+  if (act === 's-' || act === 's+') setScenario('temp', Math.max(16, Math.min(32, scenarios[scenario].temp + (act === 's+' ? 1 : -1))));
+});
+document.addEventListener('change', e => {
+  const key = e.target.dataset && e.target.dataset.set;
+  if (!key) return;
+  settings[key] = e.target.value;
+  store.set('settings', settings); render();
+});
+
+// ---------- start ----------
+try {
+  TG.ready(); TG.expand();
+  if (TG.isVersionAtLeast('7.7')) TG.disableVerticalSwipes();
+  TG.onEvent('themeChanged', render);
+  TG.BackButton.onClick(back);
+  if (TG.isVersionAtLeast('6.9')) TG.CloudStorage.getItems(['order', 'main', 'scenarios', 'settings'], (err, saved) => {
+    if (err || !saved) return;
+    // a phone that has nothing of its own yet takes what was saved from another
+    const mine = k => saved[k] && localStorage.getItem('dolphin.' + k) === null ? JSON.parse(saved[k]) : null;
+    order = mine('order') ? ordered(mine('order')) : order;
+    mainIds = mine('main') || mainIds;
+    scenarios = Object.assign({}, scenarios, mine('scenarios') || {});
+    settings = mine('settings') || settings;
+    render();
+  });
+} catch (e) {}
+if (DEMO) { pairing = { k:'demo', t:'demo' }; demo([]); }
+render();
+listen();
+if (!DEMO) ping(true);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { listen(); ping(); } });
+// the relay has a daily message limit, so the open page asks only now and then
+setInterval(() => { if (!document.hidden && !DEMO) ping(); }, 180000);
+</script>
+</body>
+</html>

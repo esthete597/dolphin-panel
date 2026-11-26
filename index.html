@@ -20,7 +20,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 /* the plain colour is what iOS paints the strip with the clock in, outside Telegram */
-html{background-color:var(--bg1)}
+html{background-color:var(--bg1);overscroll-behavior-y:none}
 body{background:linear-gradient(var(--bg1),var(--bg2)) fixed var(--bg1);color:var(--t);font-family:-apple-system,Roboto,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 main{max-width:480px;margin:0 auto;padding:10px 14px calc(84px + env(safe-area-inset-bottom))}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
@@ -79,7 +79,7 @@ select,input[type=text]{font:inherit;font-size:16px;background:var(--tile);color
 .sheet h3{font-size:17px;margin-bottom:10px}.sheet .pill{margin-top:8px}
 .toast{position:fixed;left:16px;right:16px;bottom:calc(86px + env(safe-area-inset-bottom));max-width:448px;margin:0 auto;background:var(--t);color:var(--bg1);border-radius:14px;padding:12px 14px;font-size:14px;text-align:center;z-index:20}
 .tires{display:flex;justify-content:space-around;margin-top:9px;padding:8px 8px 0;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}
-.tires b{color:var(--t);font-size:14px;margin-left:4px}.tires b.odd{color:var(--warn)}
+.tires b{color:var(--t);font-size:14px;margin-left:4px}.tires b.bad{color:var(--bad)}
 .acbtn{width:54px;height:54px;margin-left:10px;flex:none;border-radius:50%;background:var(--card);border:1px solid var(--line);color:var(--mut);font-weight:800;font-size:20px}
 .acbtn.on{background:var(--green);border-color:var(--green);color:var(--on)}
 .acbtn.busy{animation:pulse .8s infinite alternate}
@@ -92,6 +92,7 @@ select,input[type=text]{font:inherit;font-size:16px;background:var(--tile);color
 .standalone main.home{display:flex;flex-direction:column}
 .standalone main.home .quick{flex:1;display:flex;flex-direction:column}
 .standalone main.home .quick .grid{flex:1;align-content:space-evenly}
+.pull{position:fixed;left:50%;transform:translateX(-50%);top:calc(8px + env(safe-area-inset-top));z-index:25;background:var(--t);color:var(--bg1);border-radius:999px;padding:8px 14px;font-size:13px;white-space:nowrap;pointer-events:none}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -100,6 +101,7 @@ select,input[type=text]{font:inherit;font-size:16px;background:var(--tile);color
 <nav class="tabs" id="tabs"></nav>
 <div class="shade" id="shade" hidden><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast" hidden></div>
+<div class="pull" id="pull" hidden></div>
 <div class="viewer" id="viewer" hidden><button class="x" id="viewerClose" aria-label="Закрыть фото">✕</button>
   <b id="viewerTitle"></b><img id="viewerImg" alt="Фото с камеры" hidden><span id="viewerNote"></span></div>
 <script>
@@ -268,8 +270,7 @@ const waiting = new Map();   // request id -> resolve
 let source = null, lastPing = 0;
 const FRESH_MS = 60000;
 // every question and every answer is a message, and the relay allows 250 of them in half a day per address
-const PING_EVERY_MS = 5 * 60000, IDLE_MS = 10 * 60000;
-let limited = false, touched = Date.now();
+let limited = false;
 const LIMIT_TEXT = 'Дневной лимит бесплатной связи исчерпан, восстановится позже';
 function listen() {
   if (DEMO || !pairing.k) return;
@@ -485,13 +486,13 @@ const tile = (it, mark) => {
   ${mark || ''}<span class="dot${f.on ? ' on' : ''}">${ic(f.icon, 28)}</span><span>${esc(f.name)}</span></button>`;
 };
 
-// bar, in the order of the wheels; a tyre over 10 % off the others is marked, as on the tablet
+// bar, in the order of the wheels; red at 2,0 and below or above 2,7, as on the tablet
 function tires() {
   const t = car && car.tire;
   if (!t) return '';
-  const mean = t.reduce((a, b) => a + b, 0) / t.length;
+  const bad = kpa => Math.round(kpa / 10) <= 20 || Math.round(kpa / 10) > 27;
   return `<div class="tires">${['Пер. Л', 'Пер. П', 'Зад. Л', 'Зад. П'].map((name, i) =>
-    `<span>${name}<b class="${Math.abs(t[i] - mean) > 0.1 * mean ? 'odd' : ''}">${(t[i] / 100).toFixed(1).replace('.', ',')}</b></span>`).join('')}</div>`;
+    `<span>${name}<b class="${bad(t[i]) ? 'bad' : ''}">${(t[i] / 100).toFixed(1).replace('.', ',')}</b></span>`).join('')}</div>`;
 }
 // the car's seven air modes as the tablet's three keys: F face, L legs, G glass
 const WIND = ['', 'F', 'FL', 'L', 'LG', 'G', 'FLG', 'FG'];
@@ -734,6 +735,40 @@ document.addEventListener('change', e => {
   store.set('settings', settings); render();
 });
 
+// ---------- pull down to refresh ----------
+const PULL_PX = 80;
+function bindPull() {
+  let from = null, far = 0;
+  const hint = $('pull');
+  const reset = () => { from = null; far = 0; hint.hidden = true; };
+  document.addEventListener('touchstart', e => {
+    reset();
+    if (e.touches.length === 1 && window.scrollY <= 0 && !editing && $('shade').hidden && $('viewer').hidden
+      && e.target.id !== 'shadeRange') from = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive:true });
+  document.addEventListener('touchmove', e => {
+    if (!from) return;
+    const dx = e.touches[0].clientX - from.x;
+    far = e.touches[0].clientY - from.y;
+    if (far < 0 || Math.abs(dx) > Math.max(30, far)) return reset();
+    hint.hidden = far < 20;
+    hint.textContent = far >= PULL_PX ? 'Отпустите, чтобы обновить' : 'Потяните, чтобы обновить';
+  }, { passive:true });
+  document.addEventListener('touchend', () => {
+    const go = from && far >= PULL_PX;
+    reset();
+    if (go) refresh();
+  }, { passive:true });
+  document.addEventListener('touchcancel', reset, { passive:true });
+}
+async function refresh() {
+  if (!pairing.k) return toast('Пульт не связан с машиной: откройте его из бота');
+  haptic('light'); toast('Обновляю…');
+  listen(); online = null; render();
+  await ping(true);
+  toast(limited ? LIMIT_TEXT : online ? 'Обновлено' : 'Машина не ответила');
+}
+
 // ---------- start ----------
 try {
   TG.ready(); TG.expand();
@@ -757,9 +792,9 @@ render();
 listen();
 if (!DEMO) ping(true);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { listen(); ping(); } });
-// the car tells changes by itself for three minutes after each question; a page left untouched stops asking
-document.addEventListener('pointerdown', () => touched = Date.now());
-setInterval(() => { if (!document.hidden && !DEMO && Date.now() - touched < IDLE_MS) ping(); }, PING_EVERY_MS);
+// Nothing is asked by a timer. The car tells changes by itself for a couple of minutes after each question,
+// and a pull down asks again.
+bindPull();
 </script>
 </body>
 </html>

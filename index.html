@@ -86,6 +86,12 @@ select,input[type=text]{font:inherit;font-size:16px;background:var(--tile);color
 .viewer{position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:30;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;padding:16px;color:#fff;text-align:center}
 .viewer img{max-width:100%;max-height:75vh;border-radius:12px}
 .viewer .x{position:absolute;top:calc(12px + env(safe-area-inset-top));right:14px;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:22px}
+.standalone main{padding-top:30px;min-height:100vh;min-height:100dvh}
+.standalone .hero img{width:50%;margin:4px auto 6px}.standalone .tires{margin-top:6px;padding-top:6px}
+/* the main screen fills the taller window: the quick commands take what is left */
+.standalone main.home{display:flex;flex-direction:column}
+.standalone main.home .quick{flex:1;display:flex;flex-direction:column}
+.standalone main.home .quick .grid{flex:1;align-content:space-evenly}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -261,6 +267,10 @@ async function open_(message) {
 const waiting = new Map();   // request id -> resolve
 let source = null, lastPing = 0;
 const FRESH_MS = 60000;
+// every question and every answer is a message, and the relay allows 250 of them in half a day per address
+const PING_EVERY_MS = 5 * 60000, IDLE_MS = 10 * 60000;
+let limited = false, touched = Date.now();
+const LIMIT_TEXT = 'Дневной лимит бесплатной связи исчерпан, восстановится позже';
 function listen() {
   if (DEMO || !pairing.k) return;
   if (source) source.close();
@@ -288,12 +298,14 @@ async function request(cmds, wait = 12000 + cmds.length * 4000) {
   });
   try {
     const r = await fetch(`https://ntfy.sh/${pairing.t}c`, { method:'POST', body: await seal(JSON.stringify({ id, ts: Date.now(), c: cmds })) });
+    if (r.status === 429) { waiting.delete(id); limited = true; return { failed:true, limit:true }; }
     if (!r.ok) throw new Error(r.status);
+    limited = false;
   } catch (e) { waiting.delete(id); return { failed:true }; }
   return answer;
 }
 async function ping(force) {
-  if (!force && Date.now() - lastPing < 20000) return;
+  if (!force && Date.now() - lastPing < 60000) return;
   lastPing = Date.now();
   const asked = Date.now();
   const a = await request([], 22000);
@@ -328,7 +340,7 @@ function demo(cmds) {
 // ---------- running ----------
 async function run(name, cmds, tag) {
   if (!pairing.k) return toast('Пульт не связан с машиной: откройте его из бота');
-  if (online === false) { ping(true); return toast('Машина не в сети'); }
+  if (online === false) { ping(true); return toast(limited ? LIMIT_TEXT : 'Машина не в сети'); }
   if (tag) { if (busy.has(tag)) return; busy.add(tag); render(); }
   haptic('light');
   // a car program older than 1.5.2 refuses a whole request holding a command it does not know
@@ -341,7 +353,7 @@ async function run(name, cmds, tag) {
   if (tag) busy.delete(tag);
   let text, ok = false;
   if (!a) { text = 'Машина не ответила'; online = false; }
-  else if (a.failed) text = 'Нет интернета на телефоне';
+  else if (a.failed) text = a.limit ? LIMIT_TEXT : 'Нет интернета на телефоне';
   else {
     const bad = Object.entries(a.res || {}).filter(([, v]) => v !== true);
     ok = !bad.length;
@@ -393,7 +405,7 @@ async function snap(name, cmd, tag) {
     const a = await request([cmd], 40000);
     const why = a && a.res && a.res[cmd];
     if (!a) { text = 'Машина не ответила'; online = false; }
-    else if (a.failed) text = 'Нет интернета на телефоне';
+    else if (a.failed) text = a.limit ? LIMIT_TEXT : 'Нет интернета на телефоне';
     else if (why !== true) text = why || 'Фото не получилось';
     else blob = DEMO ? await demoPhoto(name) : await openPhoto(a.photo && a.photo.url);
   } catch (e) { text = 'Фото не открылось, попробуйте ещё раз'; }
@@ -497,13 +509,13 @@ function viewMain() {
   return head('BYD Dolphin') + `
   <div class="card hero">
     <div class="strip"><span class="win${w.open ? ' open' : ''}">${ic(w.open ? 'windown' : 'winup', 20)} ${w.text}</span>
-      <button class="badge${online ? ' on' : ''}" data-act="ping">${online === null ? '… Проверяю' : online ? '● Онлайн' : '○ Не в сети'}</button></div>
+      <button class="badge${online ? ' on' : ''}" data-act="ping">${limited ? '○ Лимит связи' : online === null ? '… Проверяю' : online ? '● Онлайн' : '○ Не в сети'}</button></div>
     <button class="round pin" data-act="place" aria-label="Где машина">${ic('pin', 22)}</button>
     <img src="car.png" alt="">
     <div class="figs"><span>${ic('bat', 20)}<b>${val(car && car.soc, ' %')}</b></span><span>${ic('road', 20)}<b>${val(car && car.range, ' км')}</b></span><span>${ic('odo', 20)}<b>${val(car && car.odo, ' км')}</b></span></div>
     ${tires()}
   </div>
-  <div class="card"><div class="row"><span>Быстрые команды</span></div>
+  <div class="card quick"><div class="row"><span>Быстрые команды</span></div>
     <div class="grid">${mainIds.map(id => tile(item(id))).join('')}</div></div>
   <button class="card clim" id="clim"><span class="fill"></span>
     <span class="sw${on ? ' on' : ''}">${on ? 'ON' : 'OFF'}</span>
@@ -602,6 +614,7 @@ function render() {
   $('app').innerHTML = { main: viewMain, commands: viewCommands, climate: viewClimate, settings: viewSettings, scenario: viewScenario }[tab]();
   $('tabs').innerHTML = [['main','car','Машина'], ['commands','grid','Команды'], ['settings','gear','Настройки']]
     .map(([id, icon, label]) => `<button class="tab${tab === id || (id === 'main' && tab === 'climate') || (id === 'settings' && tab === 'scenario') ? ' on' : ''}" data-tab="${id}">${ic(icon, id === 'main' ? 28 : 24)}<span>${label}</span></button>`).join('');
+  $('app').classList.toggle('home', tab === 'main');
   if (tab === 'main') bindClimate();
   if (tab === 'commands' && editing) bindDrag();
   try { if (tab === 'climate' || tab === 'scenario' || editing === 'main') TG.BackButton.show(); else TG.BackButton.hide(); } catch (e) {}
@@ -739,13 +752,14 @@ try {
   });
 } catch (e) {}
 if (DEMO) { pairing = { k:'demo', t:'demo' }; demo([]); }
+if (standalone() && !(TG && TG.platform !== 'unknown')) document.documentElement.classList.add('standalone');
 render();
 listen();
 if (!DEMO) ping(true);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { listen(); ping(); } });
-// while the page is open the car tells changes by itself for three minutes after each question; asking once
-// a minute keeps that going (the relay has a daily message limit, so not more often)
-setInterval(() => { if (!document.hidden && !DEMO) ping(); }, 60000);
+// the car tells changes by itself for three minutes after each question; a page left untouched stops asking
+document.addEventListener('pointerdown', () => touched = Date.now());
+setInterval(() => { if (!document.hidden && !DEMO && Date.now() - touched < IDLE_MS) ping(); }, PING_EVERY_MS);
 </script>
 </body>
 </html>

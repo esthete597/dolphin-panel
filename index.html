@@ -35,6 +35,9 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .cmd{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;line-height:1.15;text-align:center;color:var(--t2);touch-action:manipulation}
 .dot{width:52px;height:52px;border-radius:18px;background:var(--tile);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:28px}
 .cmd:active .dot,.dot.on{background:var(--green);color:var(--on)}
+.cmd.flip .dot{animation:flip .55s ease}.cmd.flip>span:last-child{animation:fade .55s ease}
+@keyframes flip{0%{transform:rotateY(90deg) scale(.85)}60%{transform:rotateY(-12deg) scale(1.06)}100%{transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
 .cmd.busy .dot{animation:pulse .8s infinite alternate}
 @keyframes pulse{to{opacity:.35}}
 .editing .cmd{touch-action:none}
@@ -127,20 +130,35 @@ for (let i = 1; i <= 7; i++) LABELS['fan_' + i] = `Обдув ${i}`;
 
 // the commands are fixed; the owner orders them, picks those of the main screen and tunes the two scenarios
 const ITEMS = [
-  { id:'wc', name:'Закрыть окна', icon:'winup', cmds:['win_close'] },
-  { id:'wo', name:'Открыть окна', icon:'windown', cmds:['win_open'] },
+  { id:'win', toggle:true },
   { id:'wv', name:'Проветрить', icon:'vent', cmds:['win_vent'] },
   { id:'winter', name:'Зимний запуск', icon:'winter', scenario:true },
   { id:'summer', name:'Летний запуск', icon:'summer', scenario:true },
   { id:'find', name:'Найти машину', icon:'find', find:true },
-  { id:'sd', name:'Подогрев водителя', icon:'seatheat', cmds:['seat_d2'] },
-  { id:'df', name:'Обдув лобового', icon:'defr', cmds:['defrost_on'] },
+  { id:'sd', toggle:true },
+  { id:'sp', toggle:true },
+  { id:'df', toggle:true },
   { id:'mh', name:'Обогрев зеркал', icon:'mirrorheat', cmds:['mirror_heat_on'] },
-  { id:'sp', name:'Подогрев пассажира', icon:'seatheat', cmds:['seat_p2'] },
-  { id:'so', name:'Подогрев выкл', icon:'seat', cmds:['seat_d0','seat_p0'] },
-  { id:'ac0', name:'Выключить климат', icon:'fanoff', cmds:['ac_off'] },
   { id:'mi', name:'Сложить зеркала', icon:'fold', cmds:['mirror_on'] }
 ];
+/** What a card shows and does now: a two-way command offers the opposite of what the car reports. */
+function face(it) {
+  if (!it.toggle) return it;
+  const c = car || {};
+  if (it.id === 'win') {
+    const open = !!c.win && c.win.some(w => w > 0);
+    return open ? { name:'Закрыть окна', icon:'winup', cmds:['win_close'], on:true }
+                : { name:'Открыть окна', icon:'windown', cmds:['win_open'], on:false };
+  }
+  if (it.id === 'df') {
+    const on = c.defrost === 1;
+    return { name:`${on ? 'Выключить' : 'Включить'} обдув лобового`, icon:'defr', cmds:[on ? 'defrost_off' : 'defrost_on'], on };
+  }
+  const driver = it.id === 'sd', on = (driver ? c.seatD : c.seatP) > 0;
+  const level = on ? 0 : (driver ? settings.seatD : settings.seatP);
+  return { name:`${on ? 'Выключить' : 'Включить'} подогрев ${driver ? 'водителя' : 'пассажира'}`, icon:'seatheat',
+    cmds:[`seat_${driver ? 'd' : 'p'}${level}`], on };
+}
 const IDS = ITEMS.map(i => i.id);
 const item = id => ITEMS.find(i => i.id === id);
 const MAIN_MAX = 9;
@@ -157,7 +175,7 @@ const scenarioCommands = id => {
   const c = scenarios[id];
   return ['ac_on', `temp_${c.temp}`, `fan_${c.fan}`, c.flow, `seat_d${c.seatD}`, `seat_p${c.seatP}`, c.mirror ? 'mirror_heat_on' : 'mirror_heat_off'];
 };
-let settings = store.get('settings', { theme:'auto' });
+let settings = Object.assign({ theme:'auto', seatD:2, seatP:2 }, store.get('settings', {}));
 let journal = store.get('journal', []);
 let car = store.get('car', null);      // the last status the car sent
 let climate = store.get('climate', {});  // the last temperature and fan the car reported
@@ -230,6 +248,7 @@ function demo(cmds) {
   car = Object.assign({ soc:80, range:290, odo:66599, in:25, ac:0, temp:22, fan:2, circ:1, auto:0, defrost:0, seatD:0, seatP:0, win:[0,0,0,0], lat:41.311, lon:69.279 }, car || {}, { ts: Date.now() });
   cmds.forEach(c => {
     if (c === 'ac_on') car.ac = 1; if (c === 'ac_off') car.ac = 0;
+    if (c === 'defrost_on') car.defrost = 1; if (c === 'defrost_off') car.defrost = 0;
     if (c.startsWith('temp_')) car.temp = +c.slice(5); if (c.startsWith('fan_')) car.fan = +c.slice(4);
     if (c === 'win_open') car.win = [100,100,100,100]; if (c === 'win_close') car.win = [0,0,0,0]; if (c === 'win_vent') car.win = [10,10,10,10];
     if (c.startsWith('seat_d')) car.seatD = +c.slice(6); if (c.startsWith('seat_p')) car.seatP = +c.slice(6);
@@ -272,7 +291,8 @@ $('shade').addEventListener('click', e => { if (e.target === $('shade')) closeSh
 
 function press(it) {
   if (it.find) return showPlace();
-  run(it.name, it.scenario ? scenarioCommands(it.id) : it.cmds, it.id);
+  const f = face(it);
+  run(f.name, it.scenario ? scenarioCommands(it.id) : f.cmds, it.id);
 }
 function showPlace() {
   if (!car || car.lat === undefined) { ping(true); return toast('Машина ещё не передала место'); }
@@ -302,8 +322,14 @@ function windowsText() {
 const head = (title, back) => `<div class="head">${back ? '<button class="round" data-act="back">‹</button>' : ''}
   <div style="flex:1;margin-left:${back ? 12 : 0}px"><div class="title">${title}</div>
   <div class="sub">${!pairing.k ? 'Откройте пульт кнопкой из бота' : car ? 'Обновлено: ' + when(car.ts) : 'Данных ещё нет'}</div></div></div>`;
-const tile = (it, mark) => `<button class="cmd${busy.has(it.id) ? ' busy' : ''}" data-item="${it.id}">
-  ${mark || ''}<span class="dot">${ic(it.icon, 28)}</span><span>${esc(it.name)}</span></button>`;
+const shown = {};   // the state each two-way card was last drawn in, to animate its change
+const tile = (it, mark) => {
+  const f = face(it);
+  const changed = it.toggle && it.id in shown && shown[it.id] !== f.on;
+  if (it.toggle) shown[it.id] = f.on;
+  return `<button class="cmd${busy.has(it.id) ? ' busy' : ''}${changed ? ' flip' : ''}" data-item="${it.id}">
+  ${mark || ''}<span class="dot${f.on ? ' on' : ''}">${ic(f.icon, 28)}</span><span>${esc(f.name)}</span></button>`;
+};
 
 function viewMain() {
   const w = windowsText();
@@ -374,10 +400,14 @@ function viewScenario() {
   <div class="card"><div class="row"><span>${ic('mirrorheat', 20)} Обогрев зеркал</span></div><div class="steps">${choice('mirror', [[0,'Выкл'],[1,'Вкл']])}</div></div>`;
 }
 function viewSettings() {
+  const level = key => [1, 2].map(n => `<button class="${+settings[key] === n ? 'on' : ''}" data-level="${key}" data-value="${n}">Уровень ${n}</button>`).join('');
   const row = id => { const c = scenarios[id]; return `<button class="card clim" data-scenario="${id}"><span class="sw">${ic(item(id).icon, 30)}</span>
     <span><b>${item(id).name}</b><small>${c.temp}° · обдув ${c.fan}${c.seatD || c.seatP ? ' · подогрев сидений' : ''}${c.mirror ? ' · зеркала' : ''}</small></span></button>`; };
   return head('Настройки') + `
   <div class="row" style="margin:4px 4px 8px"><span>Сценарии</span></div>${row('winter')}${row('summer')}
+  <div class="card"><div class="row"><span>${ic('seatheat', 20)} Подогрев по умолчанию: водитель</span></div>
+    <div class="steps">${level('seatD')}</div>
+    <div class="row" style="margin-top:12px"><span>${ic('seatheat', 20)} Пассажир</span></div><div class="steps">${level('seatP')}</div></div>
   <div class="card"><label class="line">Тема<select data-set="theme">${options([['auto','как в Telegram'],['light','светлая'],['dark','тёмная']], settings.theme)}</select></label>
     <div class="line">Связь с машиной<span>${pairing.k ? (online ? 'в сети' : 'настроена') : 'не настроена'}</span></div></div>
   <div class="card"><div class="row"><span>Журнал команд</span>${journal.length ? '<button class="link" data-act="clear">Очистить</button>' : ''}</div>
@@ -472,9 +502,10 @@ function setScenario(key, value) {
   store.set('scenarios', scenarios); render();
 }
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-tab],[data-act],[data-mark],[data-item],[data-run],[data-key],[data-scenario]');
+  const t = e.target.closest('[data-tab],[data-act],[data-mark],[data-item],[data-run],[data-key],[data-scenario],[data-level]');
   if (!t) return;
   if (t.dataset.tab) return go(t.dataset.tab);
+  if (t.dataset.level) { settings[t.dataset.level] = +t.dataset.value; store.set('settings', settings); return render(); }
   if (t.dataset.mark) {
     const id = t.dataset.mark;
     if (mainIds.includes(id)) mainIds = mainIds.filter(x => x !== id);

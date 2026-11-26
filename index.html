@@ -561,6 +561,9 @@ function viewScenario() {
     <div class="steps"><button class="${c.shade < 0 ? 'on' : ''}" data-key="shade" data-value="-1">Не трогать</button><button class="${c.shade >= 0 ? 'on' : ''}" data-key="shade" data-value="${c.shade >= 0 ? c.shade : 50}">Открыть на…</button></div>
     ${c.shade >= 0 ? `<input type="range" id="shadeRange" min="0" max="100" step="10" value="${c.shade}" aria-label="Насколько открыть шторку">` : ''}</div>`;
 }
+// the journal stands folded: the last few lines, the rest under a button
+const JOURNAL_SHORT = 3;
+let journalOpen = false;
 function viewSettings() {
   const level = key => [1, 2].map(n => `<button class="${+settings[key] === n ? 'on' : ''}" data-level="${key}" data-value="${n}">Уровень ${n}</button>`).join('');
   const row = id => { const c = scenarios[id]; return `<button class="card clim" data-scenario="${id}"><span class="sw">${ic(item(id).icon, 30)}</span>
@@ -576,7 +579,8 @@ function viewSettings() {
     <div class="line">Связь с машиной<span>${pairing.k ? (online ? 'в сети' : 'настроена') : 'не настроена'}</span></div></div>
   ${standalone() || !pairing.k ? '' : '<div class="card"><button class="pill" data-act="install">Значок на экран iPhone</button></div>'}
   <div class="card"><div class="row"><span>Журнал команд</span>${journal.length ? '<button class="link" data-act="clear">Очистить</button>' : ''}</div>
-    ${journal.length ? journal.map(j => `<div class="line"><span>${esc(j.name)}<br><small>${when(j.t)}</small></span><small style="text-align:right">${esc(j.text)}</small></div>`).join('') : '<small>Пока пусто</small>'}</div>`;
+    ${journal.length ? journal.slice(0, journalOpen ? journal.length : JOURNAL_SHORT).map(j => `<div class="line"><span>${esc(j.name)}<br><small>${when(j.t)}</small></span><small style="text-align:right">${esc(j.text)}</small></div>`).join('') : '<small>Пока пусто</small>'}
+    ${journal.length > JOURNAL_SHORT ? `<button class="pill" data-act="journal" style="margin-top:10px">${journalOpen ? 'Свернуть ▴' : `Показать все (${journal.length}) ▾`}</button>` : ''}</div>`;
 }
 
 function applyTheme() {
@@ -597,7 +601,7 @@ function render() {
   if (tab === 'commands' && editing) bindDrag();
   try { if (tab === 'climate' || tab === 'scenario' || editing === 'main') TG.BackButton.show(); else TG.BackButton.hide(); } catch (e) {}
 }
-function go(next) { tab = next; editing = null; render(); window.scrollTo(0, 0); }
+function go(next) { journalOpen = false; tab = next; editing = null; render(); window.scrollTo(0, 0); }
 function back() { if (!$('viewer').hidden) return closeViewer(); if (tab === 'scenario') go('settings'); else if (tab === 'commands') go('commands'); else go('main'); }
 
 // short press: climate settings; held for 0.9 s (the bar fills left to right): on with the saved values, or off
@@ -690,6 +694,7 @@ document.addEventListener('click', e => {
   if (act === 'ping') { online = null; render(); ping(true); }
   if (act === 'place') showPlace();
   if (act === 'install') showInstall();
+  if (act === 'journal') { journalOpen = !journalOpen; render(); }
   if (act === 'order') { editing = 'order'; render(); }
   if (act === 'main-edit') { editing = 'main'; render(); }
   if (act === 'done') { editing = null; render(); }

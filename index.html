@@ -35,7 +35,7 @@ input[type=range]{width:100%;accent-color:var(--green);margin:12px 0 2px}
 .badge{border-radius:999px;padding:6px 14px;font-weight:700;background:var(--tile);color:var(--mut)}
 .badge.on{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
 .hero img{display:block;width:58%;max-width:260px;margin:12px auto 10px}
-.pin{position:absolute;right:12px;top:48px}
+.strip .pin{width:32px;height:32px;margin-left:auto;flex:none}
 .figs{display:flex;justify-content:space-around;font-size:15px}.figs span{display:flex;gap:6px;align-items:center;color:var(--t2)}.figs b{color:var(--t)}
 .row{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--t2);margin-bottom:8px}
 .link{color:var(--green);font-size:14px;padding:4px}
@@ -78,8 +78,12 @@ select,input[type=text]{font:inherit;font-size:16px;background:var(--tile);color
 .sheet{background:var(--card);border-radius:22px 22px 0 0;width:100%;max-width:480px;max-height:85vh;overflow:auto;padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
 .sheet h3{font-size:17px;margin-bottom:10px}.sheet .pill{margin-top:8px}
 .toast{position:fixed;left:16px;right:16px;bottom:calc(86px + env(safe-area-inset-bottom));max-width:448px;margin:0 auto;background:var(--t);color:var(--bg1);border-radius:14px;padding:12px 14px;font-size:14px;text-align:center;z-index:20}
-.tires{display:flex;justify-content:space-around;margin-top:9px;padding:8px 8px 0;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}
-.tires b{color:var(--t);font-size:14px;margin-left:4px}.tires b.bad{color:var(--bad)}
+.around{display:flex;align-items:center;gap:6px;padding:0 10px;margin:8px 0 10px}
+.around>div{display:flex;flex-direction:column;gap:10px;flex:none}
+.hero .around img{flex:1;min-width:0;width:auto;max-width:250px;margin:0 auto}
+.tyre{display:flex;flex-direction:column;align-items:center;min-width:52px;background:var(--tile);border-radius:10px;padding:4px 6px;line-height:1.2}
+.tyre b{font-size:15px;color:var(--t)}.tyre small{font-size:10.5px;white-space:nowrap}
+.tyre.bad{background:color-mix(in srgb,var(--bad) 16%,transparent)}.tyre.bad b{color:var(--bad)}
 .acbtn{width:54px;height:54px;margin-left:10px;flex:none;border-radius:50%;background:var(--card);border:1px solid var(--line);color:var(--mut);font-weight:800;font-size:20px}
 .acbtn.on{background:var(--green);border-color:var(--green);color:var(--on)}
 .acbtn.busy{animation:pulse .8s infinite alternate}
@@ -87,7 +91,7 @@ select,input[type=text]{font:inherit;font-size:16px;background:var(--tile);color
 .viewer img{max-width:100%;max-height:75vh;border-radius:12px}
 .viewer .x{position:absolute;top:calc(12px + env(safe-area-inset-top));right:14px;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:22px}
 .standalone main{padding-top:30px;min-height:100vh;min-height:100dvh}
-.standalone .hero img{width:50%;margin:4px auto 6px}.standalone .tires{margin-top:6px;padding-top:6px}
+.standalone .hero img{width:52%;margin:4px auto 6px}.standalone .around{margin:6px 0}.standalone .hero .around img{width:auto;margin:0 auto}
 /* the main screen fills the taller window: the quick commands take what is left */
 .standalone main.home{display:flex;flex-direction:column}
 .standalone main.home .quick{flex:1;display:flex;flex-direction:column}
@@ -486,13 +490,14 @@ const tile = (it, mark) => {
   ${mark || ''}<span class="dot${f.on ? ' on' : ''}">${ic(f.icon, 28)}</span><span>${esc(f.name)}</span></button>`;
 };
 
-// bar, in the order of the wheels; red at 2,0 and below or above 2,7, as on the tablet
-function tires() {
-  const t = car && car.tire;
-  if (!t) return '';
+// bar, at the corners of the car as seen from above (left wheels left, front ones on top);
+// red at 2,0 and below or above 2,7, as on the tablet
+function carWithTyres() {
+  const t = car && car.tire, img = '<img src="car.png" alt="">';
+  if (!t) return img;
   const bad = kpa => Math.round(kpa / 10) <= 20 || Math.round(kpa / 10) > 27;
-  return `<div class="tires">${['Пер. Л', 'Пер. П', 'Зад. Л', 'Зад. П'].map((name, i) =>
-    `<span>${name}<b class="${bad(t[i]) ? 'bad' : ''}">${(t[i] / 100).toFixed(1).replace('.', ',')}</b></span>`).join('')}</div>`;
+  const chip = (i, name) => `<span class="tyre${bad(t[i]) ? ' bad' : ''}"><b>${(t[i] / 100).toFixed(1).replace('.', ',')}</b><small>${name}</small></span>`;
+  return `<div class="around"><div>${chip(0, 'пер. л')}${chip(2, 'зад. л')}</div>${img}<div>${chip(1, 'пер. п')}${chip(3, 'зад. п')}</div></div>`;
 }
 // the car's seven air modes as the tablet's three keys: F face, L legs, G glass
 const WIND = ['', 'F', 'FL', 'L', 'LG', 'G', 'FLG', 'FG'];
@@ -510,11 +515,9 @@ function viewMain() {
   return head('BYD Dolphin') + `
   <div class="card hero">
     <div class="strip"><span class="win${w.open ? ' open' : ''}">${ic(w.open ? 'windown' : 'winup', 20)} ${w.text}</span>
-      <button class="badge${online ? ' on' : ''}" data-act="ping">${limited ? '○ Лимит связи' : online === null ? '… Проверяю' : online ? '● Онлайн' : '○ Не в сети'}</button></div>
-    <button class="round pin" data-act="place" aria-label="Где машина">${ic('pin', 22)}</button>
-    <img src="car.png" alt="">
+      <button class="round pin" data-act="place" aria-label="Где машина">${ic('pin', 18)}</button><button class="badge${online ? ' on' : ''}" data-act="ping">${limited ? '○ Лимит связи' : online === null ? '… Проверяю' : online ? '● Онлайн' : '○ Не в сети'}</button></div>
+    ${carWithTyres()}
     <div class="figs"><span>${ic('bat', 20)}<b>${val(car && car.soc, ' %')}</b></span><span>${ic('road', 20)}<b>${val(car && car.range, ' км')}</b></span><span>${ic('odo', 20)}<b>${val(car && car.odo, ' км')}</b></span></div>
-    ${tires()}
   </div>
   <div class="card quick"><div class="row"><span>Быстрые команды</span></div>
     <div class="grid">${mainIds.map(id => tile(item(id))).join('')}</div></div>

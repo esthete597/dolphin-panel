@@ -227,16 +227,22 @@ const ordered = saved => saved.filter(id => IDS.includes(id)).concat(IDS.filter(
 let order = ordered(store.get('order', IDS));
 let mainIds = store.get('main', IDS.slice(0, MAIN_MAX)).filter(id => IDS.includes(id));
 const SCENARIO_DEFAULTS = {
-  winter: { temp:26, fan:3, flow:'flow_feet', seatD:2, seatP:0, mirror:1, shade:-1 },
-  summer: { temp:18, fan:4, flow:'flow_face', seatD:0, seatP:0, mirror:0, shade:-1 }
+  winter: { temp:26, fan:3, wind:'L', seatD:2, seatP:0, mirror:1, shade:-1 },
+  summer: { temp:18, fan:4, wind:'F', seatD:0, seatP:0, mirror:0, shade:-1 }
 };
+// a scenario saved before 1.5.5 held one direction («flow»): it becomes the same set of keys
+function withWind(scenario, saved) {
+  if (saved && !saved.wind && saved.flow) scenario.wind = { flow_face:'F', flow_feet:'L', flow_all:'FLG' }[saved.flow] || scenario.wind;
+  delete scenario.flow;
+  return scenario;
+}
 // shade -1: the scenario leaves the sunshade alone, else the percent it opens to
 const savedScenarios = store.get('scenarios', {});
 let scenarios = {};
-Object.keys(SCENARIO_DEFAULTS).forEach(id => scenarios[id] = Object.assign({}, SCENARIO_DEFAULTS[id], savedScenarios[id]));
+Object.keys(SCENARIO_DEFAULTS).forEach(id => scenarios[id] = withWind(Object.assign({}, SCENARIO_DEFAULTS[id], savedScenarios[id]), savedScenarios[id]));
 const scenarioCommands = id => {
   const c = scenarios[id];
-  return ['ac_on', `temp_${c.temp}`, `fan_${c.fan}`, c.flow, `seat_d${c.seatD}`, `seat_p${c.seatP}`, c.mirror ? 'mirror_heat_on' : 'mirror_heat_off']
+  return ['ac_on', `temp_${c.temp}`, `fan_${c.fan}`, `wind_${WIND.indexOf(c.wind)}`, `seat_d${c.seatD}`, `seat_p${c.seatP}`, c.mirror ? 'mirror_heat_on' : 'mirror_heat_off']
     .concat(c.shade >= 0 ? [`shade_${c.shade}`] : []);
 };
 let settings = Object.assign({ theme:'auto', seatD:2, seatP:2, maps:'yandex' }, store.get('settings', {}));
@@ -573,7 +579,8 @@ function viewScenario() {
   <div class="card"><div class="row"><span>${ic('fan', 20)} Скорость обдува</span><b>${c.fan}</b></div>
     <div class="steps">${choice('fan', [1,2,3,4,5,6,7].map(n => [n, n]))}</div></div>
   <div class="card"><div class="row"><span>${ic('vent', 20)} Потоки воздуха</span></div>
-    <div class="steps">${choice('flow', [['flow_face','В лицо'],['flow_feet','В ноги'],['flow_all','Везде']])}</div></div>
+    <div class="steps">${[['F','В лицо'],['L','В ноги'],['G','На стекло']].map(([p, label]) => `<button class="${c.wind.includes(p) ? 'on' : ''}" data-part="${p}">${label}</button>`).join('')}</div>
+    <small style="display:block;margin-top:6px">Можно выбрать несколько</small></div>
   <div class="card"><div class="row"><span>${ic('seatheat', 20)} Подогрев водителя</span></div><div class="steps">${choice('seatD', [[0,'Выкл'],[1,'1'],[2,'2']])}</div>
     <div class="row" style="margin-top:12px"><span>${ic('seatheat', 20)} Подогрев пассажира</span></div><div class="steps">${choice('seatP', [[0,'Выкл'],[1,'1'],[2,'2']])}</div></div>
   <div class="card"><div class="row"><span>${ic('mirrorheat', 20)} Обогрев зеркал</span></div><div class="steps">${choice('mirror', [[0,'Выкл'],[1,'Вкл']])}</div></div>
@@ -694,7 +701,7 @@ function setScenario(key, value) {
   store.set('scenarios', scenarios); render();
 }
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-tab],[data-act],[data-mark],[data-item],[data-run],[data-wind],[data-key],[data-scenario],[data-level],[data-maps]');
+  const t = e.target.closest('[data-tab],[data-act],[data-mark],[data-item],[data-run],[data-wind],[data-part],[data-key],[data-scenario],[data-level],[data-maps]');
   if (!t) return;
   if (t.dataset.tab) return go(t.dataset.tab);
   if (t.dataset.maps) { settings.maps = t.dataset.maps; store.set('settings', settings); return render(); }
@@ -707,7 +714,12 @@ document.addEventListener('click', e => {
     store.set('main', mainIds); return render();
   }
   if (t.dataset.scenario) { scenario = t.dataset.scenario; return go('scenario'); }
-  if (t.dataset.key) return setScenario(t.dataset.key, t.dataset.key === 'flow' ? t.dataset.value : +t.dataset.value);
+  if (t.dataset.part) {
+    const now = scenarios[scenario].wind, part = t.dataset.part;
+    const next = 'FLG'.split('').filter(p => p === part ? !now.includes(p) : now.includes(p)).join('');
+    return next ? setScenario('wind', next) : toast('Нужен хотя бы один поток');
+  }
+  if (t.dataset.key) return setScenario(t.dataset.key, +t.dataset.value);
   if (t.dataset.wind) return toggleWind(t.dataset.wind);
   if (t.dataset.run) return run(LABELS[t.dataset.run], [t.dataset.run], t.dataset.run);
   if (t.dataset.item) { if (!editing) press(item(t.dataset.item)); return; }
@@ -784,7 +796,8 @@ try {
     const mine = k => saved[k] && localStorage.getItem('dolphin.' + k) === null ? JSON.parse(saved[k]) : null;
     order = mine('order') ? ordered(mine('order')) : order;
     mainIds = mine('main') || mainIds;
-    scenarios = Object.assign({}, scenarios, mine('scenarios') || {});
+    const remote = mine('scenarios') || {};
+    Object.keys(remote).forEach(id => scenarios[id] = withWind(Object.assign({}, scenarios[id], remote[id]), remote[id]));
     settings = mine('settings') || settings;
     render();
   });
